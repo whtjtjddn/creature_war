@@ -23,8 +23,10 @@
     #ctrl { display:flex; gap:8px; }
     #sb { flex:1; padding:12px; font-size:14px; font-weight:600; border-radius:10px; cursor:pointer; background:#6C63FF; color:#fff; border:none; transition:opacity .15s; }
     #sb:hover { opacity:.88; }
-    #rb { padding:12px 18px; font-size:12px; border-radius:10px; cursor:pointer; background:var(--bg2); color:var(--text2); border:1px solid var(--border); transition:opacity .15s; }
+    #rb { padding:12px 16px; font-size:12px; border-radius:10px; cursor:pointer; background:var(--bg2); color:var(--text2); border:1px solid var(--border); transition:opacity .15s; }
     #rb:hover { opacity:.75; }
+    #rnd { padding:12px 16px; font-size:13px; border-radius:10px; cursor:pointer; background:linear-gradient(135deg,#f6ad55,#ed64a6); color:#fff; border:none; font-weight:700; transition:transform .12s,opacity .15s; letter-spacing:-.2px; }
+    #rnd:hover { opacity:.88; transform:scale(1.03); }
     #rx { display:none; border-radius:14px; padding:20px; text-align:center; margin-top:12px; }
     .pb { padding:5px 10px; font-size:11px; border-radius:14px; cursor:pointer; border:1px solid var(--border2); background:transparent; color:var(--text2); font-family:var(--font); transition:all .15s; }
     .pb.on { background:var(--text); color:var(--bg); border-color:transparent; }
@@ -44,6 +46,7 @@
     <div id="pnl"></div>
     <div id="ctrl">
       <button id="sb">시작하기</button>
+      <button id="rnd">🎲 랜덤 시작</button>
       <button id="rb">설정으로</button>
     </div>
     <div id="rx"></div>
@@ -737,8 +740,43 @@ function backS(){
   genObs(); // 새 맵 미리보기
   rSetup();sLoop();
 }
+// 랜덤 이름 풀
+const RNAMES=['철수','영희','민준','서연','지훈','하은','태양','나비','번개','폭풍','그림자','유령','도깨비','불꽃','얼음','독수리','늑대','호랑이','용','봉황','악마','천사','닌자','해적','마법사','전사','궁수','검사','성기사','암살자'];
+
+function startRandom(){
+  if(mode==='playing')return;
+  cancelAnimationFrame(sId);cancelAnimationFrame(aId);
+
+  // 1) 이름 & 무기 랜덤 (이름 중복 방지)
+  const namePool=[...RNAMES].sort(()=>Math.random()-.5);
+  cfgs=COLS.map((col,i)=>({
+    col,
+    name:namePool[i]||`${i+1}P`,
+    wep:WEPS[~~(Math.random()*WEPS.length)]
+  }));
+
+  // 2) 카운트다운 연출 후 시작
+  document.getElementById('rx').style.display='none';
+  rSetup();
+
+  let cnt=3;
+  const tick=()=>{
+    setBan(`🎲 랜덤 배틀 시작! ${cnt}...`);
+    if(cnt-->1){setTimeout(tick,700);}
+    else{
+      setTimeout(()=>{
+        init();mode='playing';evT=0;fc=0;
+        document.getElementById('sb').textContent='진행 중...';
+        setBan('🎲 GO!');loop();
+      },700);
+    }
+  };
+  tick();
+}
+
 document.getElementById('sb').onclick=startG;
 document.getElementById('rb').onclick=backS;
+document.getElementById('rnd').onclick=startRandom;
 window.addEventListener('resize',()=>{
   const nw=CV.offsetWidth;if(Math.abs(nw-W)<2)return;
   location.reload();
