@@ -284,7 +284,7 @@ function setN(n){pCount=n;rSetup();}
 function init(){
   genObs();const pos=sPo(pCount);
   creatures=cfgs.slice(0,pCount).map((cfg,i)=>{const p=WP[cfg.wep]||WP['샷건'];return{name:cfg.name,col:cfg.col,wep:cfg.wep,cd:p.cd,pd:p.pd,sp:p.sp,ch:p.ch,r:18+Math.random()*6,x:pos[i].x,y:pos[i].y,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,alive:true,hp:p.hp,hp0:p.hp,cdT:~~(p.cd*(.05+Math.random()*.3)),chg:false,chT:0,aAng:0,hfl:0,poi:0,dis:0,slw:0,trail:[],wA:Math.random()*Math.PI*2,sd:Math.random()<.5?1:-1,lb:null,ks:null,flm:null,chain:null};});
-  projs=[];parts=[];floats=[];deathOrd=[];meteor=null;evFX=[];resetCam();
+  projs=[];parts=[];floats=[];deathOrd=[];meteor=null;evFX=[];resetZone();resetCam();
 }
 
 // ─── 전투 로직 ───────────────────────────────────────────
@@ -548,6 +548,103 @@ const EVS=[
     evFX.push({type:'explosion',x:W/2,y:H/2,r:20,r2:0,a:1,life:60});
   }},
 ];
+// ─── 맵 축소 존 ──────────────────────────────────────────
+let zone={x:0,y:0,w:W,h:H,tx:0,ty:0,tw:W,th:H,phase:'wait',timer:0,warnAlpha:0};
+const ZONE_WAIT=900;    // 대기 프레임 (약 30초)
+const ZONE_WARN=120;    // 경고 깜빡임 프레임
+const ZONE_SPEED=0.28;  // 초당 수축 속도(px)
+const ZONE_MIN=80;      // 최소 여백
+
+function resetZone(){
+  zone={x:0,y:0,w:W,h:H,tx:0,ty:0,tw:W,th:H,phase:'wait',timer:0,warnAlpha:0};
+}
+function nextZoneTarget(){
+  const shrink=60+~~(Math.random()*60); // 한 단계 수축량
+  const nx=zone.tx+shrink*(Math.random()*.6+.2);
+  const ny=zone.ty+shrink*(Math.random()*.6+.2);
+  const nw=Math.max(zone.tw-shrink*2,ZONE_MIN*2);
+  const nh=Math.max(zone.th-shrink*2,ZONE_MIN*2);
+  zone.tx=Math.min(nx,W/2-ZONE_MIN);
+  zone.ty=Math.min(ny,H/2-ZONE_MIN);
+  zone.tw=nw;zone.th=nh;
+}
+function stepZone(){
+  zone.timer+=ts;
+  if(zone.phase==='wait'){
+    if(zone.timer>=ZONE_WAIT){zone.phase='warn';zone.timer=0;zone.warnAlpha=0;nextZoneTarget();setBan('⚠️ 맵이 좁아집니다!');}
+  } else if(zone.phase==='warn'){
+    zone.warnAlpha=.5+.5*Math.sin(zone.timer*.18);
+    if(zone.timer>=ZONE_WARN){zone.phase='shrink';zone.timer=0;}
+  } else if(zone.phase==='shrink'){
+    // 현재 존을 목표 존으로 lerp
+    zone.x+=(zone.tx-zone.x)*ZONE_SPEED*ts*.06;
+    zone.y+=(zone.ty-zone.y)*ZONE_SPEED*ts*.06;
+    zone.w+=(zone.tw-zone.w)*ZONE_SPEED*ts*.06;
+    zone.h+=(zone.th-zone.h)*ZONE_SPEED*ts*.06;
+    // 존 밖 크리처 데미지
+    creatures.filter(c=>c.alive).forEach(c=>{
+      if(c.x<zone.x||c.x>zone.x+zone.w||c.y<zone.y||c.y>zone.y+zone.h){
+        c.hp=Math.max(0,c.hp-.45*ts);c.hfl=4;checkDrama(c);
+      }
+    });
+    // 충분히 수렴하면 다음 대기
+    const diff=Math.abs(zone.x-zone.tx)+Math.abs(zone.y-zone.ty)+Math.abs(zone.w-zone.tw)+Math.abs(zone.h-zone.th);
+    if(diff<4){
+      // 최소 크기면 유지, 아니면 다시 대기
+      if(zone.tw<=ZONE_MIN*2+8){zone.phase='hold';}
+      else{zone.phase='wait';zone.timer=0;zone.warnAlpha=0;}
+    }
+  }
+  // hold: 계속 존 밖 데미지만 적용
+  if(zone.phase==='hold'){
+    creatures.filter(c=>c.alive).forEach(c=>{
+      if(c.x<zone.x||c.x>zone.x+zone.w||c.y<zone.y||c.y>zone.y+zone.h){
+        c.hp=Math.max(0,c.hp-.7*ts);c.hfl=4;checkDrama(c);
+      }
+    });
+  }
+}
+function drawZone(){
+  const zx=zone.x,zy=zone.y,zw=zone.w,zh=zone.h;
+  // 존 바깥 어두운 오버레이 (4면 사각형)
+  cx.fillStyle='rgba(0,0,0,.48)';
+  cx.fillRect(0,0,W,zy);               // 상단
+  cx.fillRect(0,zy+zh,W,H-zy-zh);      // 하단
+  cx.fillRect(0,zy,zx,zh);             // 좌측
+  cx.fillRect(zx+zw,zy,W-zx-zw,zh);   // 우측
+  // 경고/활성 테두리
+  const isWarn=zone.phase==='warn';
+  const isShrink=zone.phase==='shrink'||zone.phase==='hold';
+  if(zone.phase==='wait'&&zone.timer<ZONE_WAIT)return; // 대기 초반엔 안보임
+  const now=Date.now();
+  const pulse=.55+.45*Math.sin(now*.008);
+  const lineAlpha=isWarn?zone.warnAlpha:(isShrink?.85:0);
+  const lineCol=isWarn?`rgba(255,200,0,${lineAlpha})`:`rgba(255,80,80,${lineAlpha*pulse})`;
+  if(lineAlpha>0){
+    cx.strokeStyle=lineCol;cx.lineWidth=isWarn?2.5:3;
+    cx.setLineDash(isWarn?[10,6]:[]);
+    cx.beginPath();cx.rect(zx,zy,zw,zh);cx.stroke();
+    cx.setLineDash([]);
+    // 코너 강조
+    const cLen=18;[[zx,zy,1,1],[zx+zw,zy,-1,1],[zx,zy+zh,1,-1],[zx+zw,zy+zh,-1,-1]].forEach(([cx2,cy2,dx,dy])=>{
+      cx.strokeStyle=lineCol;cx.lineWidth=4;cx.beginPath();
+      cx.moveTo(cx2+dx*cLen,cy2);cx.lineTo(cx2,cy2);cx.lineTo(cx2,cy2+dy*cLen);cx.stroke();
+    });
+  }
+  // 경고 텍스트 (warn 단계)
+  if(isWarn){
+    cx.globalAlpha=zone.warnAlpha*.9;
+    cx.fillStyle='rgba(0,0,0,.55)';cx.beginPath();cx.roundRect(W/2-80,H/2-14,160,28,14);cx.fill();
+    cx.fillStyle='#F6C90E';cx.font='700 13px sans-serif';cx.textAlign='center';cx.textBaseline='middle';
+    cx.fillText('⚠ 맵이 좁아집니다!',W/2,H/2);cx.globalAlpha=1;
+  }
+  // 타이머 바 (wait 단계 마지막 300프레임)
+  if(zone.phase==='wait'&&zone.timer>ZONE_WAIT-300){
+    const prog=(zone.timer-(ZONE_WAIT-300))/300;
+    cx.fillStyle='rgba(0,0,0,.5)';cx.beginPath();cx.roundRect(W/2-60,H-12,120,5,3);cx.fill();
+    cx.fillStyle=`rgba(246,201,14,${.5+prog*.5})`;cx.beginPath();cx.roundRect(W/2-60,H-12,120*prog,5,3);cx.fill();
+  }
+}
 function step(){
   updCam();const al=creatures.filter(c=>c.alive);
   if(al.length<=1){winner=al[0]||null;mode='ended';showRes();return;}
@@ -558,7 +655,7 @@ function step(){
   if(parts.length>90)parts.splice(0,parts.length-90);parts=parts.filter(p=>p.l>0);
   floats.forEach(f=>{f.y+=f.vy*ts;f.l-=.016*ts;});floats=floats.filter(f=>f.l>0);
   evT+=ts;if(evT>300+Math.random()*180){const e=EVS[~~(Math.random()*EVS.length)];setBan(e.lb);e.fn();evT=0;}
-  stepMeteor();stepEvFX();
+  stepMeteor();stepEvFX();stepZone();
 }
 
 // ─── 렌더링 ──────────────────────────────────────────────
@@ -609,6 +706,7 @@ function worldDraw(){
   const dc=mapTheme.stroke.replace(/[\d.]+\)$/,'.18)');
   for(let x=20;x<W;x+=28)for(let y=20;y<H;y+=28){cx.globalAlpha=.32;cx.fillStyle=dc;cx.beginPath();cx.arc(x,y,.7,0,Math.PI*2);cx.fill();}cx.globalAlpha=1;
   obs.forEach(drawO);projs.forEach(drawPr);
+  drawZone();
   parts.forEach(p=>{cx.globalAlpha=p.l*.8;cx.fillStyle=p.col;cx.beginPath();cx.arc(p.x,p.y,p.r,0,Math.PI*2);cx.fill();});cx.globalAlpha=1;
   creatures.filter(c=>c.alive).forEach(drawC);
   drawMeteor();drawEvFX();
@@ -734,7 +832,7 @@ function startG(){
   setBan('🥊 배틀 시작!');loop();
 }
 function backS(){
-  mode='setup';winner=null;cancelAnimationFrame(aId);projs=[];parts=[];floats=[];obs=[];deathOrd=[];meteor=null;evFX=[];resetCam();
+  mode='setup';winner=null;cancelAnimationFrame(aId);projs=[];parts=[];floats=[];obs=[];deathOrd=[];meteor=null;evFX=[];resetZone();resetCam();
   document.getElementById('rx').style.display='none';document.getElementById('sb').textContent='시작하기';
   document.getElementById('eb').textContent='크리처를 설정하고 시작하세요';document.getElementById('eb').classList.remove('on');
   genObs(); // 새 맵 미리보기
@@ -747,13 +845,8 @@ function startRandom(){
   if(mode==='playing')return;
   cancelAnimationFrame(sId);cancelAnimationFrame(aId);
 
-  // 1) 이름 & 무기 랜덤 (이름 중복 방지)
-  const namePool=[...RNAMES].sort(()=>Math.random()-.5);
-  cfgs=COLS.map((col,i)=>({
-    col,
-    name:namePool[i]||`${i+1}P`,
-    wep:WEPS[~~(Math.random()*WEPS.length)]
-  }));
+  // 무기만 랜덤
+  cfgs.slice(0,pCount).forEach(c=>{c.wep=WEPS[~~(Math.random()*WEPS.length)];});
 
   // 2) 카운트다운 연출 후 시작
   document.getElementById('rx').style.display='none';
