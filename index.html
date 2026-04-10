@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <link rel="icon" href="/favicon.ico">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/favicon.ico">
   <title>커피 내기 배틀로얄</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -62,7 +62,23 @@ CV.width=W; CV.height=H;
 
 const COLS=['#B794F4','#48BB78','#FC8181','#F687B3','#F6E05E','#63B3ED','#F6AD55','#4FD1C5','#FB923C','#A3E635'];
 const WEPS=['샷건','독침총','미니건','레이저','카타나','부메랑','저격총','로켓','냉동총','화염','전기','유탄','도끼','플라즈마','체인소'];
-const WP={샷건:{cd:110,pd:110,hp:200,sp:1.0},독침총:{cd:65,pd:165,hp:150,sp:1.1},미니건:{cd:12,pd:140,hp:280,sp:.85},레이저:{cd:130,pd:180,hp:160,sp:.9,ch:50},카타나:{cd:80,pd:50,hp:160,sp:1.35},부메랑:{cd:115,pd:150,hp:190,sp:1.0},저격총:{cd:340,pd:200,hp:140,sp:.9},로켓:{cd:160,pd:155,hp:185,sp:.95},냉동총:{cd:72,pd:145,hp:165,sp:1.1},화염:{cd:48,pd:68,hp:220,sp:1.0},전기:{cd:130,pd:130,hp:155,sp:.95},유탄:{cd:145,pd:125,hp:185,sp:.95},도끼:{cd:95,pd:45,hp:195,sp:1.2},플라즈마:{cd:140,pd:190,hp:155,sp:0.95,ch:40},체인소:{cd:8,pd:30,hp:240,sp:1.15}};
+const WP={
+  샷건:  {cd:120, pd:110, hp:200, sp:1.0},   // 5발×18=90 / 4초 → DPS 22.5, 근거리 강
+  독침총:{cd:75,  pd:165, hp:160, sp:1.05},  // 명중11+독24=35 / 2.5초 → DPS 14, 장거리
+  미니건:{cd:14,  pd:140, hp:260, sp:0.85},  // 5×14=70 / 약14발 → DPS ~25, 지속딜
+  레이저:{cd:140, pd:180, hp:165, sp:0.9, ch:55}, // 충전 후 46 / 5초 → DPS 9, 벽통과
+  카타나:{cd:90,  pd:55,  hp:170, sp:1.35},  // 44 / 3초 → DPS 15, 초근접
+  부메랑:{cd:120, pd:150, hp:190, sp:1.0},   // 왕복 52 / 4초 → DPS 13, 범위
+  저격총:{cd:320, pd:200, hp:145, sp:0.9},   // 60 / 10초 → DPS 6, 고뎀 1타
+  로켓:  {cd:170, pd:155, hp:185, sp:0.95},  // AOE 38 / 5.5초 → DPS 7, 광역
+  냉동총:{cd:80,  pd:145, hp:170, sp:1.1},   // 5+슬로우 / 2.5초 → DPS 2+유틸
+  화염:  {cd:55,  pd:75,  hp:215, sp:1.0},   // 14×범위 / 1.8초 → DPS 가변, 근접
+  전기:  {cd:120, pd:130, hp:170, sp:1.0},   // 22+14=36 체인 / 4초 → DPS 9
+  유탄:  {cd:150, pd:125, hp:185, sp:0.95},  // AOE 35 / 5초 → DPS 7, 광역
+  도끼:  {cd:100, pd:50,  hp:200, sp:1.2},   // 52 / 3.3초 → DPS 16, 광호
+  플라즈마:{cd:145,pd:190,hp:160, sp:0.95, ch:40}, // 42 튕김 / 5초 → DPS 8
+  체인소:{cd:10,  pd:35,  hp:235, sp:1.1},   // 9×연속 / 초고속 → DPS 27, 초근접
+};
 
 // 승리조건 레이블
 const wLabels={last:'최후 생존자 커피',first:'첫 번째 사망자 커피',nth:'N번째 사망자 커피'};
@@ -284,8 +300,8 @@ function setN(n){pCount=n;rSetup();}
 // ─── 게임 초기화 ─────────────────────────────────────────
 function init(){
   genObs();const pos=sPo(pCount);
-  creatures=cfgs.slice(0,pCount).map((cfg,i)=>{const p=WP[cfg.wep]||WP['샷건'];return{name:cfg.name,col:cfg.col,wep:cfg.wep,cd:p.cd,pd:p.pd,sp:p.sp,ch:p.ch,r:18+Math.random()*6,x:pos[i].x,y:pos[i].y,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,alive:true,hp:p.hp,hp0:p.hp,cdT:~~(p.cd*(.05+Math.random()*.3)),chg:false,chT:0,aAng:0,hfl:0,poi:0,dis:0,slw:0,curse:0,trail:[],wA:Math.random()*Math.PI*2,sd:Math.random()<.5?1:-1,lb:null,ks:null,flm:null,chain:null};});
-  projs=[];parts=[];floats=[];deathOrd=[];meteor=null;evFX=[];bountyActive=true;resetZone();resetCam();
+  creatures=cfgs.slice(0,pCount).map((cfg,i)=>{const p=WP[cfg.wep]||WP['샷건'];return{name:cfg.name,col:cfg.col,wep:cfg.wep,cd:p.cd,pd:p.pd,sp:p.sp,ch:p.ch,r:20,x:pos[i].x,y:pos[i].y,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,alive:true,hp:p.hp,hp0:p.hp,cdT:~~(p.cd*(.05+Math.random()*.3)),chg:false,chT:0,aAng:0,hfl:0,poi:0,dis:0,slw:0,curse:0,trail:[],wA:Math.random()*Math.PI*2,sd:Math.random()<.5?1:-1,lb:null,ks:null,flm:null,chain:null};});
+  projs=[];parts=[];floats=[];deathOrd=[];meteor=null;evFX=[];bountyActive=true;finalRoundDone=false;finalRoundTimer=0;resetZone();resetCam();
 }
 
 // ─── 전투 로직 ───────────────────────────────────────────
@@ -305,17 +321,17 @@ function mele(c,ang){
 }
 function fire(c,tgt){
   if(!tgt)return;const{a}=tDir(c,tgt);
-  if(c.wep==='샷건'){for(let i=-2;i<=2;i++){const s=i*.13;projs.push({x:c.x,y:c.y,vx:Math.cos(a+s)*5.4,vy:Math.sin(a+s)*5.4,ow:c,dm:11,r:3.5,tp:'p',l:28,col:c.col,bn:1,sd:i===0});}}
-  else if(c.wep==='독침총')projs.push({x:c.x,y:c.y,vx:Math.cos(a)*6.2,vy:Math.sin(a)*6.2,ow:c,dm:11,r:3.5,tp:'d',l:42,col:c.col,bn:0,po:120,sd:true});
-  else if(c.wep==='미니건'){const j=(Math.random()-.5)*.22;projs.push({x:c.x,y:c.y,vx:Math.cos(a+j)*6.4,vy:Math.sin(a+j)*6.4,ow:c,dm:5,r:2.5,tp:'b',l:26,col:c.col,bn:0,sd:false});}
+  if(c.wep==='샷건'){for(let i=-2;i<=2;i++){const s=i*.13;projs.push({x:c.x,y:c.y,vx:Math.cos(a+s)*5.4,vy:Math.sin(a+s)*5.4,ow:c,dm:18,r:3.5,tp:'p',l:30,col:c.col,bn:1,sd:i===0});}}
+  else if(c.wep==='독침총')projs.push({x:c.x,y:c.y,vx:Math.cos(a)*6.5,vy:Math.sin(a)*6.5,ow:c,dm:11,r:3.5,tp:'d',l:44,col:c.col,bn:0,po:120,sd:true});
+  else if(c.wep==='미니건'){const j=(Math.random()-.5)*.25;projs.push({x:c.x,y:c.y,vx:Math.cos(a+j)*6.4,vy:Math.sin(a+j)*6.4,ow:c,dm:5,r:2.5,tp:'b',l:26,col:c.col,bn:0,sd:false});}
   else if(c.wep==='카타나')mele(c,a);
-  else if(c.wep==='부메랑')projs.push({x:c.x,y:c.y,vx:Math.cos(a)*5,vy:Math.sin(a)*5,ow:c,dm:26,r:6,tp:'bo',l:115,col:c.col,bn:0,tT:0,ret:false,oRef:c,hs:[],sd:true});
-  else if(c.wep==='저격총'){const rng=lrng(c.x,c.y,a),nx=Math.cos(a),ny=Math.sin(a);creatures.filter(o=>o.alive&&o!==c).forEach(o=>{const px=o.x-c.x,py=o.y-c.y,pr=px*nx+py*ny;if(pr>0&&pr<rng&&Math.abs(px*ny-py*nx)<o.r+5){o.hp-=60;o.hfl=20;addShk(5);addFl('-60',o.x,o.y-o.r-8,c.col);spP(o.x,o.y,c.col,6);checkDrama(o);}});c.lb={a,rng,l:12};}
-  else if(c.wep==='로켓')projs.push({x:c.x,y:c.y,vx:Math.cos(a)*2.6,vy:Math.sin(a)*2.6,ow:c,dm:38,r:7,tp:'rkt',l:140,col:c.col,bn:0,sd:true,aoe:44});
-  else if(c.wep==='냉동총')projs.push({x:c.x,y:c.y,vx:Math.cos(a)*5.5,vy:Math.sin(a)*5.5,ow:c,dm:5,r:4,tp:'frz',l:40,col:'#B5D4F4',bn:0,slw:210,sd:true});
-  else if(c.wep==='화염'){const en=creatures.filter(o=>o.alive&&o!==c&&d2(o,c)<85*85);en.forEach(o=>{o.hp-=14;o.hfl=6;addFl('-14',o.x,o.y-o.r-8,c.col);checkDrama(o);});if(en.length)addShk(2);c.flm={l:10};}
+  else if(c.wep==='부메랑')projs.push({x:c.x,y:c.y,vx:Math.cos(a)*5.2,vy:Math.sin(a)*5.2,ow:c,dm:26,r:6,tp:'bo',l:120,col:c.col,bn:0,tT:0,ret:false,oRef:c,hs:[],sd:true});
+  else if(c.wep==='저격총'){const rng=lrng(c.x,c.y,a),nx=Math.cos(a),ny=Math.sin(a);creatures.filter(o=>o.alive&&o!==c).forEach(o=>{const px=o.x-c.x,py=o.y-c.y,pr=px*nx+py*ny;if(pr>0&&pr<rng&&Math.abs(px*ny-py*nx)<o.r+5){o.hp-=65;o.hfl=22;addShk(6);addFl('-65',o.x,o.y-o.r-8,c.col);spP(o.x,o.y,c.col,6);checkDrama(o);}});c.lb={a,rng,l:12};}
+  else if(c.wep==='로켓')projs.push({x:c.x,y:c.y,vx:Math.cos(a)*2.8,vy:Math.sin(a)*2.8,ow:c,dm:40,r:7,tp:'rkt',l:135,col:c.col,bn:0,sd:true,aoe:46});
+  else if(c.wep==='냉동총')projs.push({x:c.x,y:c.y,vx:Math.cos(a)*5.8,vy:Math.sin(a)*5.8,ow:c,dm:6,r:4,tp:'frz',l:42,col:'#B5D4F4',bn:0,slw:220,sd:true});
+  else if(c.wep==='화염'){const en=creatures.filter(o=>o.alive&&o!==c&&d2(o,c)<82*82);en.forEach(o=>{o.hp-=15;o.hfl=6;addFl('-15',o.x,o.y-o.r-8,c.col);checkDrama(o);});if(en.length)addShk(2);c.flm={l:10};}
   else if(c.wep==='전기'){const en=creatures.filter(o=>o.alive&&o!==c),t1=near(en,c);if(t1){t1.hp-=14;t1.hfl=14;addFl('-14',t1.x,t1.y-t1.r-8,c.col);checkDrama(t1);addShk(2);c.lb={a:tDir(c,t1).a,rng:Math.sqrt(d2(c,t1)),l:10};const t2=near(en.filter(o=>o!==t1&&d2(o,t1)<180*180),t1);if(t2){t2.hp-=8;t2.hfl=8;addFl('-8',t2.x,t2.y-t2.r-8,c.col);checkDrama(t2);c.chain={x1:c.x,y1:c.y,x2:t1.x,y2:t1.y,x3:t2.x,y3:t2.y,l:15};}}}
-  else if(c.wep==='유탄')projs.push({x:c.x,y:c.y,vx:Math.cos(a)*4.5,vy:Math.sin(a)*4.5-1.5,ow:c,dm:35,r:6,tp:'grn',l:80,col:c.col,bn:1,sd:true,aoe:40});
+  else if(c.wep==='유탄')projs.push({x:c.x,y:c.y,vx:Math.cos(a)*4.8,vy:Math.sin(a)*4.8-1.5,ow:c,dm:36,r:6,tp:'grn',l:82,col:c.col,bn:1,sd:true,aoe:42});
   else if(c.wep==='도끼'){
     creatures.filter(o=>o.alive&&o!==c).forEach(o=>{
       const dx=o.x-c.x,dy=o.y-c.y,d=Math.sqrt(dx*dx+dy*dy);if(d>75+o.r)return;
@@ -617,6 +633,103 @@ const EVS=[
 
 // 현상금 시스템 — 게임 시작 시 활성, 첫 처치 시 보상
 let bountyActive=false;
+let finalRoundDone=false;
+let finalRoundTimer=0; // 카운트다운 중 양수, 0이면 비활성
+
+function triggerFinalRound(){
+  finalRoundDone=true;
+  finalRoundTimer=180; // 6초 카운트다운
+  mode='finalRound';
+  addShk(15);
+  // 맵 재생성
+  genObs();resetZone();
+  // 생존자 체력 풀충전 + 위치 초기화
+  const al=creatures.filter(c=>c.alive);
+  const pos=sPo(2);
+  al.forEach((c,i)=>{
+    c.hp=c.hp0;c.poi=0;c.dis=0;c.slw=0;c.curse=0;c.chg=false;c.chT=0;
+    c.x=pos[i].x;c.y=pos[i].y;c.vx=0;c.vy=0;c.trail=[];c.lb=null;c.ks=null;c.flm=null;c.chain=null;
+  });
+  projs=[];parts=[];floats=[];evFX=[];meteor=null;
+  resetCam();dramaL=[];prevDL=0;
+  setBan('⚔️ 최후의 1:1 결전!');
+}
+
+function drawFinalRound(){
+  const al=creatures.filter(c=>c.alive);
+  if(al.length<2)return;
+
+  const prog=1-(finalRoundTimer/180);           // 0→1 진행도
+  const fadeIn=Math.min(1,prog*6);              // 빠른 페이드인
+  const countNum=Math.ceil(finalRoundTimer/60); // 3→2→1
+
+  // 어두운 오버레이
+  cx.globalAlpha=Math.min(.88,fadeIn*.88);
+  cx.fillStyle='#000';
+  cx.fillRect(0,0,W,H);
+  cx.globalAlpha=fadeIn;
+
+  // 상단 타이틀
+  const titleFs=Math.max(14,Math.min(24,W*.034));
+  cx.font=`700 ${titleFs}px sans-serif`;
+  cx.textAlign='center';cx.textBaseline='middle';
+  cx.strokeStyle='rgba(0,0,0,.9)';cx.lineWidth=4;cx.lineJoin='round';
+  cx.strokeText('⚔  최후의 1:1 결전  ⚔',W/2,H*.28);
+  cx.fillStyle='#F6C90E';
+  cx.fillText('⚔  최후의 1:1 결전  ⚔',W/2,H*.28);
+
+  // 체력 풀충전 문구
+  const subFs=Math.max(11,Math.min(16,W*.022));
+  cx.font=`500 ${subFs}px sans-serif`;
+  cx.fillStyle='#4ECBA0';
+  cx.strokeText('HP 풀충전!  새 맵!',W/2,H*.36);
+  cx.fillText('HP 풀충전!  새 맵!',W/2,H*.36);
+
+  // 이름 VS 레이아웃
+  const nameFs=Math.max(18,Math.min(52,W*.072));
+  cx.font=`800 ${nameFs}px sans-serif`;
+
+  // 좌측 크리처
+  cx.strokeStyle='rgba(0,0,0,.85)';cx.lineWidth=6;
+  cx.strokeText(al[0].name,W*.28,H*.52);
+  cx.fillStyle=al[0].col;
+  cx.fillText(al[0].name,W*.28,H*.52);
+  // 무기
+  cx.font=`500 ${Math.round(nameFs*.4)}px sans-serif`;
+  cx.fillStyle='rgba(255,255,255,.5)';
+  cx.fillText(al[0].wep,W*.28,H*.52+nameFs*.7);
+
+  // VS
+  cx.font=`900 ${Math.round(nameFs*.65)}px sans-serif`;
+  cx.strokeStyle='rgba(0,0,0,.85)';cx.lineWidth=5;
+  cx.strokeText('VS',W/2,H*.52);
+  cx.fillStyle='#F6C90E';
+  cx.fillText('VS',W/2,H*.52);
+
+  // 우측 크리처
+  cx.font=`800 ${nameFs}px sans-serif`;
+  cx.strokeStyle='rgba(0,0,0,.85)';cx.lineWidth=6;
+  cx.strokeText(al[1].name,W*.72,H*.52);
+  cx.fillStyle=al[1].col;
+  cx.fillText(al[1].name,W*.72,H*.52);
+  cx.font=`500 ${Math.round(nameFs*.4)}px sans-serif`;
+  cx.fillStyle='rgba(255,255,255,.5)';
+  cx.fillText(al[1].wep,W*.72,H*.52+nameFs*.7);
+
+  // 카운트다운 숫자
+  if(countNum>0){
+    const cntFs=Math.max(36,Math.min(96,H*.14));
+    const pulse=.8+.2*Math.sin(Date.now()*.01);
+    cx.font=`900 ${cntFs}px sans-serif`;
+    cx.globalAlpha=fadeIn*pulse;
+    cx.strokeStyle='rgba(0,0,0,.7)';cx.lineWidth=8;
+    cx.strokeText(countNum,W/2,H*.76);
+    cx.fillStyle='rgba(255,255,255,.9)';
+    cx.fillText(countNum,W/2,H*.76);
+  }
+
+  cx.globalAlpha=1;cx.setLineDash([]);cx.lineJoin='miter';
+}
 function triggerBounty(){
   const al=creatures.filter(c=>c.alive);
   if(al.length<1)return;
@@ -674,6 +787,13 @@ function stepZone(){
   if(zone.phase==='hold'){
     creatures.filter(c=>c.alive).forEach(c=>pushZone(c));
   }
+  // 존이 전체 맵보다 작으면 항상 경계 적용 (wait 중에도)
+  if(zone.phase==='wait'&&(zone.x>0||zone.y>0||zone.x+zone.w<W||zone.y+zone.h<H)){
+    creatures.filter(c=>c.alive).forEach(c=>pushZone(c));
+  }
+  if(zone.phase==='shrink'){
+    creatures.filter(c=>c.alive).forEach(c=>pushZone(c));
+  }
 }
 function pushZone(c){
   const pad=c.r+2;
@@ -726,6 +846,8 @@ function drawZone(){
 function step(){
   updCam();const al=creatures.filter(c=>c.alive);
   if(al.length<=1){winner=al[0]||null;mode='ended';showRes();return;}
+  // 1:1 최후 결전 트리거
+  if(al.length===2&&!finalRoundDone&&pCount>2){triggerFinalRound();return;}
   al.forEach(stepC);
   creatures.forEach(c=>{if(c.alive&&c.hp<=0){c.alive=false;deathOrd.push(c);addShk(10);spP(c.x,c.y,c.col,22);addFl(c.name+' KO!',c.x,c.y,'#fff');if(bountyActive&&deathOrd.length===1)triggerBounty();}});
   projs.forEach(stepP);if(projs.length>70)projs.splice(0,projs.length-70);projs=projs.filter(p=>p.l>0);
@@ -859,7 +981,13 @@ function drawC(c){
   drawWeaponIcon(c);
   if(c.hfl>0){cx.globalAlpha=Math.min(.65,c.hfl*.14);cx.fillStyle='#FF4757';cx.beginPath();cx.arc(c.x,c.y,c.r,0,Math.PI*2);cx.fill();cx.globalAlpha=1;}
   if(c.r>12){const ag=Math.atan2(c.vy||0,c.vx||0),lx=Math.cos(ag)*c.r*.13,ly=Math.sin(ag)*c.r*.13,eo=c.r*.28,er=Math.max(2.5,c.r*.17);cx.fillStyle='rgba(255,255,255,.9)';cx.beginPath();cx.arc(c.x-eo+lx,c.y-eo*.3+ly,er,0,Math.PI*2);cx.fill();cx.beginPath();cx.arc(c.x+eo+lx,c.y-eo*.3+ly,er,0,Math.PI*2);cx.fill();cx.fillStyle='#0B0B1A';cx.beginPath();cx.arc(c.x-eo+lx*1.6,c.y-eo*.3+ly*1.6,er*.52,0,Math.PI*2);cx.fill();cx.beginPath();cx.arc(c.x+eo+lx*1.6,c.y-eo*.3+ly*1.6,er*.52,0,Math.PI*2);cx.fill();}
-  const fs=Math.max(9,~~(c.r*.5));cx.fillStyle='rgba(255,255,255,.93)';cx.font=`700 ${fs}px sans-serif`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText(c.name,c.x,c.y+(c.r>13?c.r*.1:0));
+  const fs=Math.max(9,~~(c.r*.5));
+  cx.font=`700 ${fs}px sans-serif`;cx.textAlign='center';cx.textBaseline='middle';
+  const nameY=c.y+c.r+fs*.8;
+  cx.strokeStyle='rgba(0,0,0,.85)';cx.lineWidth=3;cx.lineJoin='round';
+  cx.strokeText(c.name,c.x,nameY);
+  cx.fillStyle='rgba(255,255,255,.97)';
+  cx.fillText(c.name,c.x,nameY);
   const bw=c.r*2,bx=c.x-bw/2,by=c.y-c.r-18,hp=Math.max(0,c.hp/c.hp0);
   cx.fillStyle='rgba(0,0,0,.65)';cx.beginPath();cx.roundRect(bx-1,by-1,bw+2,7,2);cx.fill();cx.fillStyle=hc(hp);cx.beginPath();cx.roundRect(bx,by,Math.max(2,bw*hp),5,2);cx.fill();
   const wp=c.chg?(c.chT/(c.ch||50)):Math.max(0,1-c.cdT/c.cd);
@@ -971,11 +1099,19 @@ function drawS(){
 function sLoop(){if(mode!=='setup')return;drawS();sId=requestAnimationFrame(sLoop);}
 function loop(){
   if(mode==='playing'){
-    try{step();}catch(e){console.error(e);}try{draw();}catch(e){console.error(e);}
-    fc++;if(fc%20===0)rLive();aId=requestAnimationFrame(loop);
+    try{step();}catch(e){console.error(e);}
+    try{draw();}catch(e){console.error(e);}
+    fc++;if(fc%20===0)rLive();
+    aId=requestAnimationFrame(loop);
+  } else if(mode==='finalRound'){
+    try{draw();}catch(e){console.error(e);}
+    try{drawFinalRound();}catch(e){console.error(e);}
+    finalRoundTimer--;
+    if(finalRoundTimer<=0){mode='playing';setBan('⚔️ 결전 시작!');}
+    aId=requestAnimationFrame(loop);
   } else if(mode==='ended'){
-    try{draw();}catch(e){}
-    drawEnding();
+    try{draw();}catch(e){console.error(e);}
+    try{drawEnding();}catch(e){console.error(e);}
     aId=requestAnimationFrame(loop);
   }
 }
@@ -1046,15 +1182,33 @@ function drawEnding(){
   cx.fillText('☕',W/2,iconY);
 
   // 메인 텍스트: 이름
-  const nameFS=Math.min(72,W*.1)*textA;
+  const name=loser?loser.name:'전멸';
+  const nameFS=Math.min(88,W*.13)*textA;
   cx.font=`900 ${~~nameFS}px sans-serif`;
-  cx.fillStyle=col;
   cx.textAlign='center';cx.textBaseline='middle';
-  // 텍스트 그림자 효과 (겹쳐 그리기)
-  cx.globalAlpha=textA*.18;
-  cx.fillText(loser?loser.name:'전멸',W/2+4,H/2-20+4);
+
+  // 배경 글로우 블러 효과 (여러 겹 stroke)
+  [22,14,8,4].forEach((blur,i)=>{
+    cx.globalAlpha=textA*(0.06-i*.01);
+    cx.strokeStyle=col;cx.lineWidth=blur*2;
+    cx.strokeText(name,W/2,H/2-18);
+  });
+
+  // 검은 외곽선 (가독성)
+  cx.globalAlpha=textA*.85;
+  cx.strokeStyle='rgba(0,0,0,.9)';cx.lineWidth=10;
+  cx.lineJoin='round';
+  cx.strokeText(name,W/2,H/2-18);
+
+  // 메인 색상 fill
   cx.globalAlpha=textA;
-  cx.fillText(loser?loser.name:'전멸',W/2,H/2-20);
+  cx.fillStyle=col;
+  cx.fillText(name,W/2,H/2-18);
+
+  // 흰색 하이라이트 (살짝 위, 얇게)
+  cx.globalAlpha=textA*.18;
+  cx.fillStyle='#fff';
+  cx.fillText(name,W/2,H/2-22);
 
   // 서브 텍스트: 커피 사야함
   const subFS=Math.min(28,W*.038)*textA;
