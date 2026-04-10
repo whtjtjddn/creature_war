@@ -1129,6 +1129,7 @@ function sLoop(){if(mode!=='setup')return;drawS();sId=requestAnimationFrame(sLoo
 function loop(){
   if(mode==='playing'){
     try{step();}catch(e){console.error(e);}
+    if(mode!=='playing'){return;} // step()이 mode를 바꿨으면 새 루프에 맡김
     try{draw();}catch(e){console.error(e);}
     fc++;if(fc%20===0)rLive();
     aId=requestAnimationFrame(loop);
@@ -1180,7 +1181,6 @@ function showRes(){
     mode='ended';
     rLive();
     document.getElementById('sb').textContent='다음 라운드';
-    loop();
     return;
   }
 
@@ -1208,6 +1208,8 @@ function drawEnding(){
   const{loser,timer,particles,col}=endState;
   endState.timer++;
   const t=Math.min(1,endState.timer/40);
+  // 라운드 종료 화면: 3초(≈180프레임) 후 자동 다음 라운드
+  if(endState.isRoundEnd&&endState.timer>180){tournamentNextRound();return;}
 
   cx.globalAlpha=t*.82;
   cx.fillStyle='rgba(0,0,0,.88)';
@@ -1255,10 +1257,15 @@ function drawEnding(){
     // 다음 라운드 안내
     cx.font=`700 ${~~subFS}px sans-serif`;cx.fillStyle='rgba(246,201,14,.8)';
     cx.fillText(endState.nextLabel||'',W/2,H/2+108);
-    // 클릭 안내
+    // 자동 카운트다운
+    const remaining=Math.ceil((180-endState.timer)/60);
     const hintFS=Math.min(13,W*.018)*textA;
-    cx.font=`400 ${~~hintFS}px sans-serif`;cx.fillStyle='rgba(255,255,255,.22)';
-    cx.fillText('탭하여 다음 라운드',W/2,H-36);
+    cx.font=`400 ${~~hintFS}px sans-serif`;cx.fillStyle='rgba(255,255,255,.28)';
+    cx.fillText(`${Math.max(1,remaining)}초 후 자동 시작`,W/2,H-36);
+    // 카운트다운 바
+    const prog=Math.min(1,endState.timer/180);
+    cx.fillStyle='rgba(255,255,255,.08)';cx.beginPath();cx.roundRect(W/2-100,H-18,200,4,2);cx.fill();
+    cx.fillStyle='#F6C90E';cx.beginPath();cx.roundRect(W/2-100,H-18,200*prog,4,2);cx.fill();
     cx.globalAlpha=1;
     return;
   }
@@ -1521,7 +1528,6 @@ function showTournamentEnd(){
   mode='ended';
   rLive();
   document.getElementById('sb').textContent='처음으로';
-  loop();
 }
 const RNAMES=['철수','영희','민준','서연','지훈','하은','태양','나비','번개','폭풍','그림자','유령','도깨비','불꽃','얼음','독수리','늑대','호랑이','용','봉황','악마','천사','닌자','해적','마법사','전사','궁수','검사','성기사','암살자'];
 
