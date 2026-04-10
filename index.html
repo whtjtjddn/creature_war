@@ -1155,17 +1155,18 @@ function showRes(){
 
   // 토너먼트 모드: 면제 애니 후 다음 라운드
   if(tournament.active&&wMode==='exempt'){
-    // 이번 라운드가 마지막 2명 대결이었으면 → 바로 최종 결과
-    const isLast=tournament.remaining.length<=2;
-    if(isLast){
-      // 즉시 tournamentNextRound 로직 실행해서 coffeeGuy 결정 후 최종화면
+    // 이번 라운드가 마지막 2명 대결이었으면 → winner exempt 추가 후 바로 최종 결과
+    if(tournament.remaining.length<=2){
       if(winner){const w=cfgs.find(c=>c.name===winner.name)||winner;tournament.exempt.push({...w});}
       const exemptNames=new Set(tournament.exempt.map(c=>c.name));
       tournament.remaining=tournament.allCfgs.filter(c=>!exemptNames.has(c.name));
       updateExemptPanel();
       tournament.coffeeGuy=tournament.remaining[0]||null;
       tournament.active=false;
+      endState=null;
+      cancelAnimationFrame(aId);
       showTournamentEnd();
+      aId=requestAnimationFrame(loop);
       return;
     }
     const col=winner?.col||'#4ECBA0';
@@ -1175,10 +1176,15 @@ function showRes(){
       particles.push({x:W/2,y:H/2,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd-3,r:3+Math.random()*5,l:1,
         col:i%3===0?'#F6C90E':i%3===1?col:'#fff',rot:Math.random()*Math.PI*2,rspd:(Math.random()-.5)*.2});
     }
+    // winner를 즉시 exempt에 추가
+    if(winner){const w=cfgs.find(c=>c.name===winner.name)||winner;tournament.exempt.push({...w});}
+    const exemptNames=new Set(tournament.exempt.map(c=>c.name));
+    tournament.remaining=tournament.allCfgs.filter(c=>!exemptNames.has(c.name));
+    updateExemptPanel();
     const rem=tournament.remaining.length;
     endState={loser:null,phase:'intro',timer:0,particles,col,
       isRoundEnd:true,roundWinner:winner,round:tournament.round,
-      nextLabel:rem>2?`다음: ${rem-1}명 결전`:'다음: 최후 결전!'};
+      nextLabel:rem>1?`다음: ${rem}명 결전`:'최종 결과 집계 중...'};
     mode='ended';
     rLive();
     document.getElementById('sb').textContent='다음 라운드';
@@ -1497,24 +1503,27 @@ function tournamentRound(){
   const ex=tournament.exempt.length;
   setBan(`🏆 라운드 ${tournament.round} — ${rem}명 참가 · ${ex}명 면제`);
   document.getElementById('sb').textContent='진행 중...';
-  loop();
+  // 루프 새로 시작 (이전 루프는 cancelAnimationFrame으로 중단됨)
+  requestAnimationFrame(loop);
 }
 
 function tournamentNextRound(){
-  if(winner){
-    const w=cfgs.find(c=>c.name===winner.name)||winner;
-    tournament.exempt.push({...w});
-  }
+  // exempt는 showRes에서 이미 추가됨. 여기선 remaining 재계산 후 다음 라운드만
   const exemptNames=new Set(tournament.exempt.map(c=>c.name));
   tournament.remaining=tournament.allCfgs.filter(c=>!exemptNames.has(c.name));
   updateExemptPanel();
   if(tournament.remaining.length<=1){
     tournament.coffeeGuy=tournament.remaining[0]||null;
     tournament.active=false;
+    endState=null;
     showTournamentEnd();
+    cancelAnimationFrame(aId);
+    aId=requestAnimationFrame(loop);
     return;
   }
   tournament.round++;
+  endState=null;
+  cancelAnimationFrame(aId);
   tournamentRound();
 }
 
