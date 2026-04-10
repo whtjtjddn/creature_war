@@ -1129,7 +1129,7 @@ function sLoop(){if(mode!=='setup')return;drawS();sId=requestAnimationFrame(sLoo
 function loop(){
   if(mode==='playing'){
     try{step();}catch(e){console.error(e);}
-    if(mode!=='playing'){return;} // step()이 mode를 바꿨으면 새 루프에 맡김
+    if(mode!=='playing'){aId=requestAnimationFrame(loop);return;} // mode 바뀌면 루프 넘김
     try{draw();}catch(e){console.error(e);}
     fc++;if(fc%20===0)rLive();
     aId=requestAnimationFrame(loop);
@@ -1441,8 +1441,12 @@ function startTournament(){
 function backS(){
   mode='setup';winner=null;cancelAnimationFrame(aId);
   projs=[];parts=[];floats=[];obs=[];deathOrd=[];meteor=null;evFX=[];endState=null;
-  if(tournament.origPCount)pCount=tournament.origPCount;
+  const _savedPCount=tournament.origPCount||pCount;
+  const _savedCfgs=tournament.allCfgs?.length ? [...tournament.allCfgs] : null;
   tournament={active:false,round:0,exempt:[],remaining:[],allCfgs:[],coffeeGuy:null,origPCount:0};
+  pCount=_savedPCount;
+  if(_savedCfgs) cfgs=_savedCfgs;
+  else if(!cfgs||cfgs.length<_savedPCount) initCfgs();
   resetZone();resetCam();
   document.getElementById('exempt-panel').style.display='none';
   document.getElementById('rx').style.display='none';document.getElementById('sb').textContent='시작하기';
