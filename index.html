@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -17,8 +16,25 @@
     body { background:var(--bg); color:var(--text); font-family:var(--font); min-height:100dvh; display:flex; flex-direction:column; align-items:center; padding:20px 16px 36px; }
     h1 { font-size:22px; font-weight:700; letter-spacing:-.3px; margin-bottom:3px; }
     .sub { font-size:12px; color:var(--text3); margin-bottom:18px; }
-    #wrap { width:100%; max-width:1100px; }
-    #cv { display:block; width:100%; border-radius:16px; border:1px solid var(--border); background:#0B0B1A; }
+    #wrap { width:100%; max-width:1400px; }
+    #game-area { display:flex; gap:12px; align-items:flex-start; }
+    #cv { display:block; flex:1; min-width:0; border-radius:16px; border:1px solid var(--border); background:#0B0B1A; }
+    #exempt-panel {
+      width:120px; flex-shrink:0;
+      background:var(--bg2); border:1px solid var(--border2);
+      border-radius:12px; padding:12px 10px;
+      font-family:var(--font);
+    }
+    .exempt-card {
+      display:flex; align-items:center; gap:6px;
+      padding:6px 8px; border-radius:8px;
+      margin-bottom:5px; background:var(--bg3);
+      border-left:3px solid transparent;
+    }
+    .exempt-card.exempt { opacity:1; }
+    .exempt-card.remaining { opacity:.65; }
+    .exempt-card .cname { font-size:11px; font-weight:600; color:var(--text); overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .exempt-card .badge { font-size:9px; color:var(--text3); margin-top:1px; }
     #eb { height:34px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:500; border-radius:9px; margin:10px 0; background:var(--bg2); color:var(--text3); border:1px solid transparent; transition:all .3s; }
     #eb.on { background:#1a1206; color:#F6C90E; border-color:#F6C90E44; }
     #pnl { margin-bottom:10px; }
@@ -27,7 +43,9 @@
     #sb:hover { opacity:.88; }
     #rb { padding:12px 16px; font-size:12px; border-radius:10px; cursor:pointer; background:var(--bg2); color:var(--text2); border:1px solid var(--border); transition:opacity .15s; }
     #rb:hover { opacity:.75; }
-    #rnd { padding:12px 16px; font-size:13px; border-radius:10px; cursor:pointer; background:linear-gradient(135deg,#f6ad55,#ed64a6); color:#fff; border:none; font-weight:700; transition:transform .12s,opacity .15s; letter-spacing:-.2px; }
+    #tb { padding:12px 14px; font-size:13px; font-weight:700; border-radius:10px; cursor:pointer; background:linear-gradient(135deg,#F6C90E,#F97316); color:#1a0f00; border:none; transition:transform .12s,opacity .15s; }
+    #tb:hover { opacity:.88; transform:scale(1.03); }
+    #rnd { padding:12px 14px; font-size:13px; border-radius:10px; cursor:pointer; background:linear-gradient(135deg,#f6ad55,#ed64a6); color:#fff; border:none; font-weight:700; transition:transform .12s,opacity .15s; letter-spacing:-.2px; }
     #rnd:hover { opacity:.88; transform:scale(1.03); }
     #rx { display:none; border-radius:14px; padding:20px; text-align:center; margin-top:12px; }
     .pb { padding:5px 10px; font-size:11px; border-radius:14px; cursor:pointer; border:1px solid var(--border2); background:transparent; color:var(--text2); font-family:var(--font); transition:all .15s; }
@@ -43,12 +61,22 @@
   <div id="wrap">
     <h1>☕ 커피 내기 배틀로얄</h1>
     <p class="sub">크리처들이 싸웁니다. 승리조건에 걸린 사람이 커피를 삽니다.</p>
-    <canvas id="cv"></canvas>
+    <div id="game-area">
+      <canvas id="cv"></canvas>
+      <div id="exempt-panel" style="display:none">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1px;margin-bottom:10px">🏆 면제</div>
+        <div id="exempt-list"></div>
+        <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border2)">
+          <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1px;margin-bottom:8px">⚔ 참가 중</div>
+          <div id="remaining-list"></div>
+        </div>
+      </div>
+    </div>
     <div id="eb">크리처를 설정하고 시작하세요</div>
     <div id="pnl"></div>
     <div id="ctrl">
       <button id="sb">시작하기</button>
-      <button id="rnd">🎲 랜덤 시작</button>
+      <button id="rnd">🎲 랜덤</button>
       <button id="rb">설정으로</button>
     </div>
     <div id="rx"></div>
@@ -58,8 +86,10 @@
 const CV=document.getElementById('cv'),cx=CV.getContext('2d');
 // 풀스크린보다 약간 작게 — 뷰포트 높이의 70%, 최대 740px
 const W=CV.offsetWidth||600;
-const H=Math.min(Math.round(window.innerHeight*.70),740);
+const H=Math.min(Math.round(window.innerHeight*.82),900);
 CV.width=W; CV.height=H;
+const isMobile=window.innerWidth<=600;
+const CREATURE_R=isMobile?14:20;
 
 const COLS=['#B794F4','#48BB78','#FC8181','#F687B3','#F6E05E','#63B3ED','#F6AD55','#4FD1C5','#FB923C','#A3E635'];
 const WEPS=['샷건','독침총','미니건','레이저','카타나','부메랑','저격총','로켓','냉동총','화염','전기','유탄','도끼','플라즈마','체인소'];
@@ -82,9 +112,9 @@ const WP={
 };
 
 // 승리조건 레이블
-const wLabels={last:'최후 생존자 커피',first:'첫 번째 사망자 커피',nth:'N번째 사망자 커피'};
+const wLabels={last:'최후 생존자 커피',first:'첫 번째 사망자 커피',nth:'N번째 사망자 커피',exempt:'최후 생존자 면제'};
 
-let mode='setup',pCount=3,wMode='last',dN=1;
+let mode='setup',pCount=3,wMode='exempt',dN=1;
 let cfgs=[],creatures=[],projs=[],parts=[],floats=[],obs=[];
 let winner=null,deathOrd=[],aId=null,sId=null,evT=0,fc=0;
 let cX=W/2,cY=H/2,cZ=1,tX=W/2,tY=H/2,tZ=1,ts=1,tts=1,vig=0,shk=0,SX=0,SY=0;
@@ -116,7 +146,9 @@ function updCam(){
     tX=Math.max(hw,Math.min(W-hw,mx));tY=Math.max(hh,Math.min(H-hh,my));tZ=zm;
   }else{tX=W/2;tY=H/2;tZ=1;}
   tts=any?.32:1;vig+=(any?1:0-vig)*.08;
-  cX+=(tX-cX)*.08;cY+=(tY-cY)*.08;cZ+=(tZ-cZ)*(tZ>cZ?.09:.05);ts+=(tts-ts)*.07;
+  cX+=(tX-cX)*.08;cY+=(tY-cY)*.08;cZ+=(tZ-cZ)*(tZ>cZ?.09:.05);
+  // 슬로우 진입은 빠르게, 정상 복귀는 천천히 (급격한 속도 변화 방지)
+  ts+=(tts-ts)*(tts<ts?.07:.018);
 }
 function resetCam(){cX=tX=W/2;cY=tY=H/2;cZ=tZ=1;ts=tts=1;vig=shk=0;dramaL=[];prevDL=0;dFlash=0;}
 
@@ -281,6 +313,7 @@ function rSetup(){
         <option value="last"${wMode==='last'?' selected':''}>최후 생존자 커피</option>
         <option value="first"${wMode==='first'?' selected':''}>첫 사망자 커피</option>
         <option value="nth"${wMode==='nth'?' selected':''}>N번째 사망자 커피</option>
+        <option value="exempt"${wMode==='exempt'?' selected':''}>최후 생존자 면제 ✨</option>
       </select>
       ${wMode==='nth'?`<div style="display:flex;align-items:center;gap:4px"><input type="number" min="1" max="${pCount}" value="${dN}" oninput="dN=+this.value;rSetup()" style="width:42px;font-size:12px;border:1px solid var(--border2);border-radius:7px;padding:4px 6px;background:var(--bg3);color:var(--text)"><span style="font-size:12px;color:var(--text2)">번째</span></div>`:''}
     </div>
@@ -301,7 +334,7 @@ function setN(n){pCount=n;rSetup();}
 // ─── 게임 초기화 ─────────────────────────────────────────
 function init(){
   genObs();const pos=sPo(pCount);
-  creatures=cfgs.slice(0,pCount).map((cfg,i)=>{const p=WP[cfg.wep]||WP['샷건'];return{name:cfg.name,col:cfg.col,wep:cfg.wep,cd:p.cd,pd:p.pd,sp:p.sp,ch:p.ch,r:20,x:pos[i].x,y:pos[i].y,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,alive:true,hp:p.hp,hp0:p.hp,cdT:~~(p.cd*(.05+Math.random()*.3)),chg:false,chT:0,aAng:0,hfl:0,poi:0,dis:0,slw:0,curse:0,trail:[],wA:Math.random()*Math.PI*2,sd:Math.random()<.5?1:-1,lb:null,ks:null,flm:null,chain:null};});
+  creatures=cfgs.slice(0,pCount).map((cfg,i)=>{const p=WP[cfg.wep]||WP['샷건'];return{name:cfg.name,col:cfg.col,wep:cfg.wep,cd:p.cd,pd:p.pd,sp:p.sp,ch:p.ch,r:CREATURE_R,x:pos[i].x,y:pos[i].y,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,alive:true,hp:p.hp,hp0:p.hp,cdT:~~(p.cd*(.05+Math.random()*.3)),chg:false,chT:0,aAng:0,hfl:0,poi:0,dis:0,slw:0,curse:0,trail:[],wA:Math.random()*Math.PI*2,sd:Math.random()<.5?1:-1,lb:null,ks:null,flm:null,chain:null};});
   projs=[];parts=[];floats=[];deathOrd=[];meteor=null;evFX=[];bountyActive=true;finalRoundDone=false;finalRoundTimer=0;resetZone();resetCam();
 }
 
@@ -368,7 +401,9 @@ function stepC(c){
   en.forEach(o=>{const dx=c.x-o.x,dy=c.y-o.y,d=Math.sqrt(dx*dx+dy*dy)||1;if(d<55){const f=(55-d)/55*.016;fx+=dx/d*f;fy+=dy/d*f;}});
   obs.forEach(o=>{const nx=Math.max(o.x,Math.min(c.x,o.x+o.w)),ny=Math.max(o.y,Math.min(c.y,o.y+o.h));const dx=c.x-nx,dy=c.y-ny,d=Math.sqrt(dx*dx+dy*dy)||1,mg=c.r+32;if(d<mg){fx+=dx/d*(mg-d)/mg*.05;fy+=dy/d*(mg-d)/mg*.05;}});
   if(tgt&&!c.chg){const{dx,dy,d}=tDir(c,tgt);if(d>c.pd+34){fx+=dx/d*.036;fy+=dy/d*.036;}else if(d<c.pd-34){fx-=dx/d*.028;fy-=dy/d*.028;}else{const sx=-dy/d,sy=dx/d;fx+=sx*.02*c.sd;fy+=sy*.02*c.sd;if(Math.random()<.004)c.sd*=-1;}}
-  c.vx+=fx;c.vy+=fy;const ms=.94*c.sp*(c.chg?.3:1)*(c.slw>0?.22:1),sp=Math.sqrt(c.vx**2+c.vy**2);if(sp>ms){c.vx=c.vx/sp*ms;c.vy=c.vy/sp*ms;}
+  c.vx+=fx;c.vy+=fy;
+  const alive2=creatures.filter(o=>o.alive).length<=2;
+  const ms=.94*c.sp*(c.chg?.3:1)*(c.slw>0?.22:1)*(alive2?.72:1),sp=Math.sqrt(c.vx**2+c.vy**2);if(sp>ms){c.vx=c.vx/sp*ms;c.vy=c.vy/sp*ms;}
   c.x+=c.vx*ts;c.y+=c.vy*ts;
   if(c.x-c.r<3){c.x=c.r+3;c.vx=Math.abs(c.vx)*.5;}if(c.x+c.r>W-3){c.x=W-c.r-3;c.vx=-Math.abs(c.vx)*.5;}
   if(c.y-c.r<3){c.y=c.r+3;c.vy=Math.abs(c.vy)*.5;}if(c.y+c.r>H-3){c.y=H-c.r-3;c.vy=-Math.abs(c.vy)*.5;}
@@ -745,7 +780,8 @@ function triggerBounty(){
 // ─── 맵 축소 존 ──────────────────────────────────────────
 let zone={x:0,y:0,w:W,h:H,tx:0,ty:0,tw:W,th:H,phase:'wait',timer:0,warnAlpha:0};
 const ZONE_WAIT=900;    // 대기 프레임 (약 30초)
-function zoneWait(){return creatures.filter(c=>c.alive).length<=2?360:ZONE_WAIT;} // 1v1이면 12초
+function zoneWait(){return creatures.filter(c=>c.alive).length<=2?480:ZONE_WAIT;} // 1v1이면 16초
+function zoneShrinkSpeed(){return creatures.filter(c=>c.alive).length<=2?0.18:ZONE_SPEED;}
 const ZONE_WARN=120;    // 경고 깜빡임 프레임
 const ZONE_SPEED=0.28;  // 초당 수축 속도(px)
 const ZONE_MIN=80;      // 최소 여백
@@ -771,10 +807,10 @@ function stepZone(){
     zone.warnAlpha=.5+.5*Math.sin(zone.timer*.18);
     if(zone.timer>=ZONE_WARN){zone.phase='shrink';zone.timer=0;}
   } else if(zone.phase==='shrink'){
-    zone.x+=(zone.tx-zone.x)*ZONE_SPEED*ts*.06;
-    zone.y+=(zone.ty-zone.y)*ZONE_SPEED*ts*.06;
-    zone.w+=(zone.tw-zone.w)*ZONE_SPEED*ts*.06;
-    zone.h+=(zone.th-zone.h)*ZONE_SPEED*ts*.06;
+    zone.x+=(zone.tx-zone.x)*zoneShrinkSpeed()*ts*.06;
+    zone.y+=(zone.ty-zone.y)*zoneShrinkSpeed()*ts*.06;
+    zone.w+=(zone.tw-zone.w)*zoneShrinkSpeed()*ts*.06;
+    zone.h+=(zone.th-zone.h)*zoneShrinkSpeed()*ts*.06;
     const diff=Math.abs(zone.x-zone.tx)+Math.abs(zone.y-zone.ty)+Math.abs(zone.w-zone.tw)+Math.abs(zone.h-zone.th);
     if(diff<4){
       // 수렴 시 정확히 목표값으로 스냅
@@ -840,7 +876,7 @@ function step(){
   updCam();const al=creatures.filter(c=>c.alive);
   if(al.length<=1){winner=al[0]||null;mode='ended';showRes();return;}
   // 1:1 최후 결전 트리거
-  if(al.length===2&&!finalRoundDone&&pCount>2){triggerFinalRound();return;}
+  if(al.length===2&&!finalRoundDone&&pCount>2&&!tournament.active){triggerFinalRound();return;}
   al.forEach(stepC);
   creatures.forEach(c=>{if(c.alive&&c.hp<=0){c.alive=false;deathOrd.push(c);addShk(10);spP(c.x,c.y,c.col,22);addFl(c.name+' KO!',c.x,c.y,'#fff');if(bountyActive&&deathOrd.length===1)triggerBounty();}});
   projs.forEach(stepP);if(projs.length>70)projs.splice(0,projs.length-70);projs=projs.filter(p=>p.l>0);
@@ -1114,22 +1150,52 @@ let endState=null; // {loser, phase, timer, particles}
 
 function showRes(){
   resetCam();dramaL=[];
+
+  // 토너먼트 모드: 면제 애니 후 다음 라운드
+  if(tournament.active&&wMode==='exempt'){
+    // 이번 라운드가 마지막 2명 대결이었으면 → 바로 최종 결과
+    const isLast=tournament.remaining.length<=2;
+    if(isLast){
+      // 즉시 tournamentNextRound 로직 실행해서 coffeeGuy 결정 후 최종화면
+      if(winner){const w=cfgs.find(c=>c.name===winner.name)||winner;tournament.exempt.push({...w});}
+      const exemptNames=new Set(tournament.exempt.map(c=>c.name));
+      tournament.remaining=tournament.allCfgs.filter(c=>!exemptNames.has(c.name));
+      updateExemptPanel();
+      tournament.coffeeGuy=tournament.remaining[0]||null;
+      tournament.active=false;
+      showTournamentEnd();
+      return;
+    }
+    const col=winner?.col||'#4ECBA0';
+    const particles=[];
+    for(let i=0;i<60;i++){
+      const a=Math.random()*Math.PI*2,spd=2+Math.random()*5;
+      particles.push({x:W/2,y:H/2,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd-3,r:3+Math.random()*5,l:1,
+        col:i%3===0?'#F6C90E':i%3===1?col:'#fff',rot:Math.random()*Math.PI*2,rspd:(Math.random()-.5)*.2});
+    }
+    const rem=tournament.remaining.length;
+    endState={loser:null,phase:'intro',timer:0,particles,col,
+      isRoundEnd:true,roundWinner:winner,round:tournament.round,
+      nextLabel:rem>2?`다음: ${rem-1}명 결전`:'다음: 최후 결전!'};
+    mode='ended';
+    rLive();
+    document.getElementById('sb').textContent='다음 라운드';
+    loop();
+    return;
+  }
+
   let loser=null;
   if(wMode==='last')loser=winner;
   else if(wMode==='first')loser=deathOrd[0];
+  else if(wMode==='exempt'){loser=deathOrd[0];}
   else loser=deathOrd[Math.min(dN-1,deathOrd.length-1)]||winner;
 
-  // 파티클 초기화
   const particles=[];
   const col=loser?.col||'#4ECBA0';
   for(let i=0;i<60;i++){
-    const a=Math.random()*Math.PI*2;
-    const spd=2+Math.random()*5;
-    particles.push({
-      x:W/2,y:H/2,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd-3,
-      r:3+Math.random()*5,l:1,col:i%3===0?'#F6C90E':i%3===1?col:'#fff',
-      rot:Math.random()*Math.PI*2,rspd:(Math.random()-.5)*.2
-    });
+    const a=Math.random()*Math.PI*2,spd=2+Math.random()*5;
+    particles.push({x:W/2,y:H/2,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd-3,r:3+Math.random()*5,l:1,
+      col:i%3===0?'#F6C90E':i%3===1?col:'#fff',rot:Math.random()*Math.PI*2,rspd:(Math.random()-.5)*.2});
   }
   endState={loser,phase:'intro',timer:0,particles,col};
   rLive();
@@ -1141,30 +1207,94 @@ function drawEnding(){
   if(!endState)return;
   const{loser,timer,particles,col}=endState;
   endState.timer++;
-  const t=Math.min(1,endState.timer/40); // 0→1 페이드인
+  const t=Math.min(1,endState.timer/40);
 
-  // 어두운 오버레이
   cx.globalAlpha=t*.82;
   cx.fillStyle='rgba(0,0,0,.88)';
   cx.fillRect(0,0,W,H);
   cx.globalAlpha=1;
 
-  // 파티클 업데이트 & 드로우
   particles.forEach(p=>{
     p.x+=p.vx;p.y+=p.vy;p.vy+=.12;p.vx*=.97;p.l-=.012;p.rot+=p.rspd;
     if(p.l<=0)return;
-    cx.globalAlpha=p.l*t;
-    cx.save();cx.translate(p.x,p.y);cx.rotate(p.rot);
-    cx.fillStyle=p.col;
-    cx.fillRect(-p.r/2,-p.r/2,p.r,p.r);
-    cx.restore();
+    cx.globalAlpha=p.l*t;cx.save();cx.translate(p.x,p.y);cx.rotate(p.rot);
+    cx.fillStyle=p.col;cx.fillRect(-p.r/2,-p.r/2,p.r,p.r);cx.restore();
   });
   cx.globalAlpha=1;
   endState.particles=particles.filter(p=>p.l>0);
 
-  if(t<.3)return; // 페이드인 중엔 텍스트 숨김
-
+  if(t<.3)return;
   const textA=Math.min(1,(t-.3)/.5);
+
+  // ── 라운드 종료 화면 (토너먼트 중) ──
+  if(endState.isRoundEnd&&endState.roundWinner){
+    const w=endState.roundWinner;
+    // 면제 배지
+    const badgeFS=Math.min(20,W*.028)*textA;
+    cx.globalAlpha=textA;cx.font=`700 ${~~badgeFS}px sans-serif`;
+    cx.textAlign='center';cx.textBaseline='middle';
+    cx.fillStyle='#F6C90E';
+    cx.strokeStyle='rgba(0,0,0,.8)';cx.lineWidth=4;
+    cx.strokeText(`✨ 라운드 ${endState.round} 면제 ✨`,W/2,H/2-110);
+    cx.fillText(`✨ 라운드 ${endState.round} 면제 ✨`,W/2,H/2-110);
+    // 승자 이름 크게
+    const nameFS=Math.min(82,W*.12)*textA;
+    cx.font=`900 ${~~nameFS}px sans-serif`;
+    [22,14,8,4].forEach((blur,i)=>{cx.globalAlpha=textA*(0.06-i*.01);cx.strokeStyle=w.col;cx.lineWidth=blur*2;cx.strokeText(w.name,W/2,H/2-28);});
+    cx.globalAlpha=textA*.85;cx.strokeStyle='rgba(0,0,0,.9)';cx.lineWidth=10;cx.lineJoin='round';cx.strokeText(w.name,W/2,H/2-28);
+    cx.globalAlpha=textA;cx.fillStyle=w.col;cx.fillText(w.name,W/2,H/2-28);
+    // 무기
+    const subFS=Math.min(22,W*.03)*textA;
+    cx.font=`500 ${~~subFS}px sans-serif`;cx.fillStyle='rgba(255,255,255,.5)';cx.globalAlpha=textA;
+    cx.fillText(w.wep+' 사용',W/2,H/2+38);
+    // 면제 목록
+    const exemptNow=[...(tournament.exempt||[]),w];
+    const listFS=Math.min(14,W*.02)*textA;
+    cx.font=`500 ${~~listFS}px sans-serif`;cx.fillStyle='rgba(255,255,255,.35)';
+    cx.fillText('면제: '+exemptNow.map(c=>c.name).join(' · '),W/2,H/2+72);
+    // 다음 라운드 안내
+    cx.font=`700 ${~~subFS}px sans-serif`;cx.fillStyle='rgba(246,201,14,.8)';
+    cx.fillText(endState.nextLabel||'',W/2,H/2+108);
+    // 클릭 안내
+    const hintFS=Math.min(13,W*.018)*textA;
+    cx.font=`400 ${~~hintFS}px sans-serif`;cx.fillStyle='rgba(255,255,255,.22)';
+    cx.fillText('탭하여 다음 라운드',W/2,H-36);
+    cx.globalAlpha=1;
+    return;
+  }
+
+  // ── 토너먼트 최종 종료 ──
+  if(endState.isTournament){
+    const cf=endState.coffeeGuy;
+    const iconY=H/2-115;
+    const iconSize=Math.min(72,H*.11)*textA;
+    cx.globalAlpha=textA;cx.font=`${~~iconSize}px sans-serif`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText('☕',W/2,iconY);
+    // 커피 구매자 이름
+    const nameFS=Math.min(80,W*.11)*textA;
+    cx.font=`900 ${~~nameFS}px sans-serif`;
+    [22,14,8,4].forEach((blur,i)=>{cx.globalAlpha=textA*(0.06-i*.01);cx.strokeStyle=cf?.col||'#FC8181';cx.lineWidth=blur*2;cx.strokeText(cf?cf.name:'전멸',W/2,H/2-22);});
+    cx.globalAlpha=textA*.85;cx.strokeStyle='rgba(0,0,0,.9)';cx.lineWidth=10;cx.lineJoin='round';cx.strokeText(cf?cf.name:'전멸',W/2,H/2-22);
+    cx.globalAlpha=textA;cx.fillStyle=cf?.col||'#FC8181';cx.fillText(cf?cf.name:'전멸',W/2,H/2-22);
+    // 커피 서브
+    const subFS=Math.min(26,W*.035)*textA;
+    cx.font=`700 ${~~subFS}px sans-serif`;cx.fillStyle='rgba(255,255,255,.9)';cx.globalAlpha=textA;
+    cx.fillText(cf?cf.name+' ('+cf.wep+') 커피 사야함! ☕':'전멸',W/2,H/2+42);
+    // 면제 목록
+    const ex=endState.exempt||[];
+    const listFS=Math.min(13,W*.018)*textA;
+    cx.font=`500 ${~~listFS}px sans-serif`;cx.fillStyle='rgba(255,255,255,.3)';cx.globalAlpha=textA;
+    cx.fillText('면제 순서: '+ex.map((c,i)=>`${i+1}.${c.name}`).join(' → '),W/2,H/2+82);
+    // 장식선
+    const lw=Math.min(180,W*.22)*textA;const ly=H/2-22;
+    cx.strokeStyle=cf?.col||'#FC8181';cx.lineWidth=2;cx.globalAlpha=textA*.5;
+    cx.beginPath();cx.moveTo(W/2-lw-60,ly);cx.lineTo(W/2-60,ly);cx.stroke();
+    cx.beginPath();cx.moveTo(W/2+60,ly);cx.lineTo(W/2+lw+60,ly);cx.stroke();
+    const hintFS=Math.min(13,W*.018)*textA;
+    cx.font=`400 ${~~hintFS}px sans-serif`;cx.fillStyle='rgba(255,255,255,.22)';cx.globalAlpha=textA;
+    cx.fillText('탭하여 처음으로',W/2,H-36);
+    cx.globalAlpha=1;
+    return;
+  }
 
   // 커피컵 아이콘 (크게)
   const iconY=H/2-110;
@@ -1203,6 +1333,35 @@ function drawEnding(){
   cx.fillStyle='#fff';
   cx.fillText(name,W/2,H/2-22);
 
+  // 면제 모드: 승자 면제 + 패자 표시 분리
+  if(wMode==='exempt'&&winner&&loser){
+    // 아이콘 위치 올려서 두 줄 공간 확보
+    // 승자 (면제) 크게
+    const nameFS2=Math.min(72,W*.1)*textA;
+    cx.font=`900 ${~~nameFS2}px sans-serif`;
+    cx.textAlign='center';cx.textBaseline='middle';
+    // 면제 라벨
+    const exemptFS=Math.min(18,W*.025)*textA;
+    cx.font=`700 ${~~exemptFS}px sans-serif`;
+    cx.globalAlpha=textA*.7;cx.fillStyle='#F6C90E';
+    cx.fillText('✨ 최후 생존자 면제 ✨',W/2,H/2-100);
+    // 승자 이름
+    cx.font=`900 ${~~nameFS2}px sans-serif`;
+    cx.globalAlpha=textA*.15;cx.strokeStyle=winner.col;cx.lineWidth=20;cx.strokeText(winner.name,W/2,H/2-50);
+    cx.globalAlpha=textA*.85;cx.strokeStyle='rgba(0,0,0,.9)';cx.lineWidth=10;cx.strokeText(winner.name,W/2,H/2-50);
+    cx.globalAlpha=textA;cx.fillStyle=winner.col;cx.fillText(winner.name,W/2,H/2-50);
+    // 구분선
+    cx.globalAlpha=textA*.35;cx.strokeStyle='rgba(255,255,255,.3)';cx.lineWidth=1;
+    cx.beginPath();cx.moveTo(W/2-120,H/2+2);cx.lineTo(W/2+120,H/2+2);cx.stroke();
+    // 패자 (커피)
+    const loserFS=Math.min(38,W*.055)*textA;
+    cx.font=`700 ${~~loserFS}px sans-serif`;
+    cx.globalAlpha=textA*.85;cx.strokeStyle='rgba(0,0,0,.9)';cx.lineWidth=6;cx.strokeText(loser.name+' ☕ 커피!',W/2,H/2+40);
+    cx.globalAlpha=textA;cx.fillStyle=loser.col;cx.fillText(loser.name+' ☕ 커피!',W/2,H/2+40);
+    cx.font=`500 ${Math.round(loserFS*.5)}px sans-serif`;
+    cx.fillStyle='rgba(255,255,255,.45)';cx.fillText(loser.wep+' · 첫 번째 탈락',W/2,H/2+74);
+  } else {
+
   // 서브 텍스트: 커피 사야함
   const subFS=Math.min(28,W*.038)*textA;
   cx.font=`700 ${~~subFS}px sans-serif`;
@@ -1210,6 +1369,8 @@ function drawEnding(){
   cx.globalAlpha=textA;
   const subTxt=loser?`${loser.name} (${loser.wep}) 커피 사야함! ☕`:'전멸';
   cx.fillText(subTxt,W/2,H/2+44);
+
+  } // end non-exempt
 
   // 승리조건 작은 텍스트
   const tagFS=Math.min(16,W*.022)*textA;
@@ -1242,19 +1403,126 @@ function drawEnding(){
   cx.globalAlpha=1;
 }
 function startG(){
-  if(mode==='ended'){backS();return;}if(mode==='playing')return;
-  cancelAnimationFrame(sId);init();mode='playing';evT=0;fc=0;
+  if(mode==='ended'){
+    if(endState?.isRoundEnd){tournamentNextRound();}
+    else{backS();}
+    return;
+  }
+  if(mode==='playing')return;
+  cancelAnimationFrame(sId);
+  // 최후 생존자 면제 = 토너먼트 모드
+  if(wMode==='exempt'){
+    tournamentStart();
+    return;
+  }
+  init();mode='playing';evT=0;fc=0;
   document.getElementById('rx').style.display='none';document.getElementById('sb').textContent='진행 중...';
   setBan('🥊 배틀 시작! 🎯 첫 처치 시 전원 +70 HP!');loop();
 }
+function startTournament(){
+  if(mode==='playing')return;
+  cancelAnimationFrame(sId);cancelAnimationFrame(aId);
+  tournamentStart();
+}
 function backS(){
-  mode='setup';winner=null;cancelAnimationFrame(aId);projs=[];parts=[];floats=[];obs=[];deathOrd=[];meteor=null;evFX=[];endState=null;resetZone();resetCam();
+  mode='setup';winner=null;cancelAnimationFrame(aId);
+  projs=[];parts=[];floats=[];obs=[];deathOrd=[];meteor=null;evFX=[];endState=null;
+  tournament={active:false,round:0,exempt:[],remaining:[],allCfgs:[],coffeeGuy:null};
+  resetZone();resetCam();
+  document.getElementById('exempt-panel').style.display='none';
   document.getElementById('rx').style.display='none';document.getElementById('sb').textContent='시작하기';
   document.getElementById('eb').textContent='크리처를 설정하고 시작하세요';document.getElementById('eb').classList.remove('on');
-  genObs(); // 새 맵 미리보기
-  rSetup();sLoop();
+  genObs();rSetup();sLoop();
 }
-// 랜덤 이름 풀
+// ─── 토너먼트 시스템 (최후 생존자 면제 연속 진행) ───────────
+let tournament={
+  active:false,
+  round:0,
+  exempt:[],      // 면제된 cfgs 배열 (순서대로)
+  remaining:[],   // 아직 남은 cfgs
+  coffeeGuy:null, // 최종 커피 구매자
+};
+
+function updateExemptPanel(){
+  const panel=document.getElementById('exempt-panel');
+  const exemptList=document.getElementById('exempt-list');
+  const remainingList=document.getElementById('remaining-list');
+  if(!tournament.active){panel.style.display='none';return;}
+  panel.style.display='block';
+  // 면제된 사람들
+  exemptList.innerHTML=tournament.exempt.map((c,i)=>`
+    <div class="exempt-card exempt" style="border-left-color:${c.col}">
+      <div>
+        <div class="cname" style="color:${c.col}">${c.name}</div>
+        <div class="badge">${i+1}라운드 면제</div>
+      </div>
+    </div>`).join('');
+  // 아직 참가 중인 사람들
+  remainingList.innerHTML=tournament.remaining.map(c=>`
+    <div class="exempt-card remaining" style="border-left-color:${c.col}">
+      <div class="cname">${c.name}</div>
+    </div>`).join('');
+}
+
+function tournamentStart(){
+  tournament.active=true;
+  tournament.round=1;
+  tournament.exempt=[];
+  tournament.allCfgs=[...cfgs.slice(0,pCount)];
+  tournament.remaining=[...tournament.allCfgs];
+  tournament.coffeeGuy=null;
+  tournamentRound();
+}
+
+function tournamentRound(){
+  cancelAnimationFrame(sId);cancelAnimationFrame(aId);
+  document.getElementById('rx').style.display='none';
+  endState=null;
+  cfgs=[...tournament.remaining];
+  pCount=tournament.remaining.length;
+  genObs();
+  init();mode='playing';evT=0;fc=0;finalRoundDone=false;
+  updateExemptPanel();
+  const rem=tournament.remaining.length;
+  const ex=tournament.exempt.length;
+  setBan(`🏆 라운드 ${tournament.round} — ${rem}명 참가 · ${ex}명 면제`);
+  document.getElementById('sb').textContent='진행 중...';
+  loop();
+}
+
+function tournamentNextRound(){
+  if(winner){
+    const w=cfgs.find(c=>c.name===winner.name)||winner;
+    tournament.exempt.push({...w});
+  }
+  const exemptNames=new Set(tournament.exempt.map(c=>c.name));
+  tournament.remaining=tournament.allCfgs.filter(c=>!exemptNames.has(c.name));
+  updateExemptPanel();
+  if(tournament.remaining.length<=1){
+    tournament.coffeeGuy=tournament.remaining[0]||null;
+    tournament.active=false;
+    showTournamentEnd();
+    return;
+  }
+  tournament.round++;
+  tournamentRound();
+}
+
+function showTournamentEnd(){
+  const loser=tournament.coffeeGuy;
+  const col=loser?.col||'#FC8181';
+  const particles=[];
+  for(let i=0;i<80;i++){
+    const a=Math.random()*Math.PI*2,spd=2+Math.random()*6;
+    particles.push({x:W/2,y:H/2,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd-3,r:3+Math.random()*6,l:1,
+      col:i%4===0?'#F6C90E':i%4===1?col:i%4===2?'#fff':'#FC8181',rot:Math.random()*Math.PI*2,rspd:(Math.random()-.5)*.2});
+  }
+  endState={loser,phase:'intro',timer:0,particles,col,isTournament:true,exempt:tournament.exempt,coffeeGuy:tournament.coffeeGuy};
+  mode='ended';
+  rLive();
+  document.getElementById('sb').textContent='처음으로';
+  loop();
+}
 const RNAMES=['철수','영희','민준','서연','지훈','하은','태양','나비','번개','폭풍','그림자','유령','도깨비','불꽃','얼음','독수리','늑대','호랑이','용','봉황','악마','천사','닌자','해적','마법사','전사','궁수','검사','성기사','암살자'];
 
 function startRandom(){
@@ -1286,7 +1554,12 @@ function startRandom(){
 document.getElementById('sb').onclick=startG;
 document.getElementById('rb').onclick=backS;
 document.getElementById('rnd').onclick=startRandom;
-CV.addEventListener('click',()=>{if(mode==='ended')backS();});
+CV.addEventListener('click',()=>{
+  if(mode==='ended'){
+    if(endState?.isRoundEnd)tournamentNextRound();
+    else backS();
+  }
+});
 window.addEventListener('resize',()=>{
   const nw=CV.offsetWidth;if(Math.abs(nw-W)<2)return;
   location.reload();
