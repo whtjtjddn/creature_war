@@ -1142,6 +1142,7 @@ function loop(){
   } else if(mode==='ended'){
     try{draw();}catch(e){console.error(e);}
     try{drawEnding();}catch(e){console.error(e);}
+    if(endState?.autoNext){tournamentNextRound();return;}
     aId=requestAnimationFrame(loop);
   }
 }
@@ -1209,7 +1210,7 @@ function drawEnding(){
   endState.timer++;
   const t=Math.min(1,endState.timer/40);
   // 라운드 종료 화면: 3초(≈180프레임) 후 자동 다음 라운드
-  if(endState.isRoundEnd&&endState.timer>180){tournamentNextRound();return;}
+  if(endState.isRoundEnd&&endState.timer>180){endState.autoNext=true;return;}
 
   cx.globalAlpha=t*.82;
   cx.fillStyle='rgba(0,0,0,.88)';
@@ -1434,7 +1435,8 @@ function startTournament(){
 function backS(){
   mode='setup';winner=null;cancelAnimationFrame(aId);
   projs=[];parts=[];floats=[];obs=[];deathOrd=[];meteor=null;evFX=[];endState=null;
-  tournament={active:false,round:0,exempt:[],remaining:[],allCfgs:[],coffeeGuy:null};
+  if(tournament.origPCount)pCount=tournament.origPCount;
+  tournament={active:false,round:0,exempt:[],remaining:[],allCfgs:[],coffeeGuy:null,origPCount:0};
   resetZone();resetCam();
   document.getElementById('exempt-panel').style.display='none';
   document.getElementById('rx').style.display='none';document.getElementById('sb').textContent='시작하기';
@@ -1478,6 +1480,7 @@ function tournamentStart(){
   tournament.allCfgs=[...cfgs.slice(0,pCount)];
   tournament.remaining=[...tournament.allCfgs];
   tournament.coffeeGuy=null;
+  tournament.origPCount=pCount;
   tournamentRound();
 }
 
