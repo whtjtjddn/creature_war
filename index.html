@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+  <link rel="icon" href="/favicon.ico">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" href="/favicon.ico">
   <title>커피 내기 배틀로얄</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -970,28 +970,129 @@ function drawS(){
 }
 function sLoop(){if(mode!=='setup')return;drawS();sId=requestAnimationFrame(sLoop);}
 function loop(){
-  if(mode!=='playing')return;
-  try{step();}catch(e){console.error(e);}try{draw();}catch(e){console.error(e);}
-  fc++;if(fc%20===0)rLive();aId=requestAnimationFrame(loop);
+  if(mode==='playing'){
+    try{step();}catch(e){console.error(e);}try{draw();}catch(e){console.error(e);}
+    fc++;if(fc%20===0)rLive();aId=requestAnimationFrame(loop);
+  } else if(mode==='ended'){
+    try{draw();}catch(e){}
+    drawEnding();
+    aId=requestAnimationFrame(loop);
+  }
 }
 function setBan(t){const b=document.getElementById('eb');b.textContent=t;b.classList.add('on');clearTimeout(b._t);b._t=setTimeout(()=>b.classList.remove('on'),2400);}
+// ─── 엔딩 오버레이 ───────────────────────────────────────
+let endState=null; // {loser, phase, timer, particles}
+
 function showRes(){
   resetCam();dramaL=[];
-  try{draw();}catch(e){}rLive();
   let loser=null;
   if(wMode==='last')loser=winner;
   else if(wMode==='first')loser=deathOrd[0];
   else loser=deathOrd[Math.min(dN-1,deathOrd.length-1)]||winner;
-  const rx=document.getElementById('rx');rx.style.display='block';
-  rx.style.background=loser?`${loser.col}11`:'#0a1a0d';
-  rx.style.border=loser?`1px solid ${loser.col}44`:'1px solid #48BB7844';
-  rx.innerHTML=`
-    <div style="font-size:13px;color:rgba(255,255,255,.4);margin-bottom:6px">승리조건: ${wLabels[wMode]}${wMode==='nth'?' ('+dN+'번째)':''}</div>
-    <div style="font-size:24px;font-weight:800;margin-bottom:6px;color:${loser?.col||'#4ECBA0'}">☕ ${loser?loser.name:winner?.name||'?'}</div>
-    <div style="font-size:15px;font-weight:600;color:${loser?.col||'#4ECBA0'}">${loser?loser.name+' ('+loser.wep+') 커피 사야함!':'전멸'}</div>
-    ${deathOrd.length?`<div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:10px">사망순서: ${deathOrd.map(c=>`<span style="color:${c.col}">${c.name}</span>`).join(' → ')}</div>`:''}
-  `;
+
+  // 파티클 초기화
+  const particles=[];
+  const col=loser?.col||'#4ECBA0';
+  for(let i=0;i<60;i++){
+    const a=Math.random()*Math.PI*2;
+    const spd=2+Math.random()*5;
+    particles.push({
+      x:W/2,y:H/2,vx:Math.cos(a)*spd,vy:Math.sin(a)*spd-3,
+      r:3+Math.random()*5,l:1,col:i%3===0?'#F6C90E':i%3===1?col:'#fff',
+      rot:Math.random()*Math.PI*2,rspd:(Math.random()-.5)*.2
+    });
+  }
+  endState={loser,phase:'intro',timer:0,particles,col};
+  rLive();
+  document.getElementById('rx').style.display='none';
   document.getElementById('sb').textContent='다시 시작';
+}
+
+function drawEnding(){
+  if(!endState)return;
+  const{loser,timer,particles,col}=endState;
+  endState.timer++;
+  const t=Math.min(1,endState.timer/40); // 0→1 페이드인
+
+  // 어두운 오버레이
+  cx.globalAlpha=t*.82;
+  cx.fillStyle='rgba(0,0,0,.88)';
+  cx.fillRect(0,0,W,H);
+  cx.globalAlpha=1;
+
+  // 파티클 업데이트 & 드로우
+  particles.forEach(p=>{
+    p.x+=p.vx;p.y+=p.vy;p.vy+=.12;p.vx*=.97;p.l-=.012;p.rot+=p.rspd;
+    if(p.l<=0)return;
+    cx.globalAlpha=p.l*t;
+    cx.save();cx.translate(p.x,p.y);cx.rotate(p.rot);
+    cx.fillStyle=p.col;
+    cx.fillRect(-p.r/2,-p.r/2,p.r,p.r);
+    cx.restore();
+  });
+  cx.globalAlpha=1;
+  endState.particles=particles.filter(p=>p.l>0);
+
+  if(t<.3)return; // 페이드인 중엔 텍스트 숨김
+
+  const textA=Math.min(1,(t-.3)/.5);
+
+  // 커피컵 아이콘 (크게)
+  const iconY=H/2-110;
+  const iconSize=Math.min(80,H*.12)*textA;
+  cx.globalAlpha=textA;
+  cx.font=`${~~iconSize}px sans-serif`;
+  cx.textAlign='center';cx.textBaseline='middle';
+  cx.fillText('☕',W/2,iconY);
+
+  // 메인 텍스트: 이름
+  const nameFS=Math.min(72,W*.1)*textA;
+  cx.font=`900 ${~~nameFS}px sans-serif`;
+  cx.fillStyle=col;
+  cx.textAlign='center';cx.textBaseline='middle';
+  // 텍스트 그림자 효과 (겹쳐 그리기)
+  cx.globalAlpha=textA*.18;
+  cx.fillText(loser?loser.name:'전멸',W/2+4,H/2-20+4);
+  cx.globalAlpha=textA;
+  cx.fillText(loser?loser.name:'전멸',W/2,H/2-20);
+
+  // 서브 텍스트: 커피 사야함
+  const subFS=Math.min(28,W*.038)*textA;
+  cx.font=`700 ${~~subFS}px sans-serif`;
+  cx.fillStyle='rgba(255,255,255,.9)';
+  cx.globalAlpha=textA;
+  const subTxt=loser?`${loser.name} (${loser.wep}) 커피 사야함! ☕`:'전멸';
+  cx.fillText(subTxt,W/2,H/2+44);
+
+  // 승리조건 작은 텍스트
+  const tagFS=Math.min(16,W*.022)*textA;
+  cx.font=`500 ${~~tagFS}px sans-serif`;
+  cx.fillStyle='rgba(255,255,255,.38)';
+  cx.fillText(`승리조건: ${wLabels[wMode]}${wMode==='nth'?' ('+dN+'번째)':''}`,W/2,H/2+82);
+
+  // 사망순서
+  if(deathOrd.length){
+    const dfs=Math.min(13,W*.018)*textA;
+    cx.font=`500 ${~~dfs}px sans-serif`;
+    cx.fillStyle='rgba(255,255,255,.28)';
+    const dTxt='사망순서: '+deathOrd.map(c=>c.name).join(' → ');
+    cx.fillText(dTxt,W/2,H/2+108);
+  }
+
+  // 컬러 라인 장식 (좌우)
+  const lw=Math.min(180,W*.22)*textA;
+  const ly=H/2-20;
+  cx.strokeStyle=col;cx.lineWidth=2;cx.globalAlpha=textA*.5;
+  cx.beginPath();cx.moveTo(W/2-lw-60,ly);cx.lineTo(W/2-60,ly);cx.stroke();
+  cx.beginPath();cx.moveTo(W/2+60,ly);cx.lineTo(W/2+lw+60,ly);cx.stroke();
+
+  // 하단 안내
+  const hintFS=Math.min(13,W*.018)*textA;
+  cx.font=`400 ${~~hintFS}px sans-serif`;
+  cx.fillStyle='rgba(255,255,255,.22)';
+  cx.fillText('클릭하여 다시 시작',W/2,H-36);
+
+  cx.globalAlpha=1;
 }
 function startG(){
   if(mode==='ended'){backS();return;}if(mode==='playing')return;
@@ -1000,7 +1101,7 @@ function startG(){
   setBan('🥊 배틀 시작! 🎯 첫 처치 시 전원 +70 HP!');loop();
 }
 function backS(){
-  mode='setup';winner=null;cancelAnimationFrame(aId);projs=[];parts=[];floats=[];obs=[];deathOrd=[];meteor=null;evFX=[];resetZone();resetCam();
+  mode='setup';winner=null;cancelAnimationFrame(aId);projs=[];parts=[];floats=[];obs=[];deathOrd=[];meteor=null;evFX=[];endState=null;resetZone();resetCam();
   document.getElementById('rx').style.display='none';document.getElementById('sb').textContent='시작하기';
   document.getElementById('eb').textContent='크리처를 설정하고 시작하세요';document.getElementById('eb').classList.remove('on');
   genObs(); // 새 맵 미리보기
@@ -1038,6 +1139,7 @@ function startRandom(){
 document.getElementById('sb').onclick=startG;
 document.getElementById('rb').onclick=backS;
 document.getElementById('rnd').onclick=startRandom;
+CV.addEventListener('click',()=>{if(mode==='ended')backS();});
 window.addEventListener('resize',()=>{
   const nw=CV.offsetWidth;if(Math.abs(nw-W)<2)return;
   location.reload();
