@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+  <link rel="icon" href="/favicon.ico">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="icon" href="/favicon.ico">
   <title>커피 내기 배틀로얄</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -744,6 +745,7 @@ function triggerBounty(){
 // ─── 맵 축소 존 ──────────────────────────────────────────
 let zone={x:0,y:0,w:W,h:H,tx:0,ty:0,tw:W,th:H,phase:'wait',timer:0,warnAlpha:0};
 const ZONE_WAIT=900;    // 대기 프레임 (약 30초)
+function zoneWait(){return creatures.filter(c=>c.alive).length<=2?360:ZONE_WAIT;} // 1v1이면 12초
 const ZONE_WARN=120;    // 경고 깜빡임 프레임
 const ZONE_SPEED=0.28;  // 초당 수축 속도(px)
 const ZONE_MIN=80;      // 최소 여백
@@ -764,34 +766,25 @@ function nextZoneTarget(){
 function stepZone(){
   zone.timer+=ts;
   if(zone.phase==='wait'){
-    if(zone.timer>=ZONE_WAIT){zone.phase='warn';zone.timer=0;zone.warnAlpha=0;nextZoneTarget();setBan('⚠️ 맵이 좁아집니다!');}
+    if(zone.timer>=zoneWait()){zone.phase='warn';zone.timer=0;zone.warnAlpha=0;nextZoneTarget();setBan('⚠️ 맵이 좁아집니다!');}
   } else if(zone.phase==='warn'){
     zone.warnAlpha=.5+.5*Math.sin(zone.timer*.18);
     if(zone.timer>=ZONE_WARN){zone.phase='shrink';zone.timer=0;}
   } else if(zone.phase==='shrink'){
-    // 현재 존을 목표 존으로 lerp
     zone.x+=(zone.tx-zone.x)*ZONE_SPEED*ts*.06;
     zone.y+=(zone.ty-zone.y)*ZONE_SPEED*ts*.06;
     zone.w+=(zone.tw-zone.w)*ZONE_SPEED*ts*.06;
     zone.h+=(zone.th-zone.h)*ZONE_SPEED*ts*.06;
-    // 존 경계 밀어내기
-    creatures.filter(c=>c.alive).forEach(c=>pushZone(c));
-    // 충분히 수렴하면 다음 대기
     const diff=Math.abs(zone.x-zone.tx)+Math.abs(zone.y-zone.ty)+Math.abs(zone.w-zone.tw)+Math.abs(zone.h-zone.th);
     if(diff<4){
-      if(zone.tw<=ZONE_MIN*2+8){zone.phase='hold';}
+      // 수렴 시 정확히 목표값으로 스냅
+      zone.x=zone.tx;zone.y=zone.ty;zone.w=zone.tw;zone.h=zone.th;
+      if(zone.tw<=ZONE_MIN*2+8)zone.phase='hold';
       else{zone.phase='wait';zone.timer=0;zone.warnAlpha=0;}
     }
   }
-  // hold: 경계 밀어내기 유지
-  if(zone.phase==='hold'){
-    creatures.filter(c=>c.alive).forEach(c=>pushZone(c));
-  }
-  // 존이 전체 맵보다 작으면 항상 경계 적용 (wait 중에도)
-  if(zone.phase==='wait'&&(zone.x>0||zone.y>0||zone.x+zone.w<W||zone.y+zone.h<H)){
-    creatures.filter(c=>c.alive).forEach(c=>pushZone(c));
-  }
-  if(zone.phase==='shrink'){
+  // 존이 풀맵보다 작으면 항상 경계 강제 적용 (모든 phase)
+  if(zone.x>0||zone.y>0||zone.x+zone.w<W||zone.y+zone.h<H){
     creatures.filter(c=>c.alive).forEach(c=>pushZone(c));
   }
 }
@@ -813,7 +806,7 @@ function drawZone(){
   // 경고/활성 테두리
   const isWarn=zone.phase==='warn';
   const isShrink=zone.phase==='shrink'||zone.phase==='hold';
-  if(zone.phase==='wait'&&zone.timer<ZONE_WAIT)return; // 대기 초반엔 안보임
+  if(zone.phase==='wait'&&zone.timer<zoneWait())return; // 대기 초반엔 안보임
   const now=Date.now();
   const pulse=.55+.45*Math.sin(now*.008);
   const lineAlpha=isWarn?zone.warnAlpha:(isShrink?.85:0);
@@ -837,8 +830,8 @@ function drawZone(){
     cx.fillText('⚠ 맵이 좁아집니다!',W/2,H/2);cx.globalAlpha=1;
   }
   // 타이머 바 (wait 단계 마지막 300프레임)
-  if(zone.phase==='wait'&&zone.timer>ZONE_WAIT-300){
-    const prog=(zone.timer-(ZONE_WAIT-300))/300;
+  if(zone.phase==='wait'&&zone.timer>zoneWait()-300){
+    const prog=(zone.timer-(zoneWait()-300))/300;
     cx.fillStyle='rgba(0,0,0,.5)';cx.beginPath();cx.roundRect(W/2-60,H-12,120,5,3);cx.fill();
     cx.fillStyle=`rgba(246,201,14,${.5+prog*.5})`;cx.beginPath();cx.roundRect(W/2-60,H-12,120*prog,5,3);cx.fill();
   }
