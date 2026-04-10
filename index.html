@@ -660,28 +660,26 @@ function stepZone(){
     zone.y+=(zone.ty-zone.y)*ZONE_SPEED*ts*.06;
     zone.w+=(zone.tw-zone.w)*ZONE_SPEED*ts*.06;
     zone.h+=(zone.th-zone.h)*ZONE_SPEED*ts*.06;
-    // 존 밖 크리처 데미지
-    creatures.filter(c=>c.alive).forEach(c=>{
-      if(c.x<zone.x||c.x>zone.x+zone.w||c.y<zone.y||c.y>zone.y+zone.h){
-        c.hp=Math.max(0,c.hp-.45*ts);c.hfl=4;checkDrama(c);
-      }
-    });
+    // 존 경계 밀어내기
+    creatures.filter(c=>c.alive).forEach(c=>pushZone(c));
     // 충분히 수렴하면 다음 대기
     const diff=Math.abs(zone.x-zone.tx)+Math.abs(zone.y-zone.ty)+Math.abs(zone.w-zone.tw)+Math.abs(zone.h-zone.th);
     if(diff<4){
-      // 최소 크기면 유지, 아니면 다시 대기
       if(zone.tw<=ZONE_MIN*2+8){zone.phase='hold';}
       else{zone.phase='wait';zone.timer=0;zone.warnAlpha=0;}
     }
   }
-  // hold: 계속 존 밖 데미지만 적용
+  // hold: 경계 밀어내기 유지
   if(zone.phase==='hold'){
-    creatures.filter(c=>c.alive).forEach(c=>{
-      if(c.x<zone.x||c.x>zone.x+zone.w||c.y<zone.y||c.y>zone.y+zone.h){
-        c.hp=Math.max(0,c.hp-.7*ts);c.hfl=4;checkDrama(c);
-      }
-    });
+    creatures.filter(c=>c.alive).forEach(c=>pushZone(c));
   }
+}
+function pushZone(c){
+  const pad=c.r+2;
+  if(c.x<zone.x+pad){c.x=zone.x+pad;c.vx=Math.abs(c.vx)*.5;}
+  if(c.x>zone.x+zone.w-pad){c.x=zone.x+zone.w-pad;c.vx=-Math.abs(c.vx)*.5;}
+  if(c.y<zone.y+pad){c.y=zone.y+pad;c.vy=Math.abs(c.vy)*.5;}
+  if(c.y>zone.y+zone.h-pad){c.y=zone.y+zone.h-pad;c.vy=-Math.abs(c.vy)*.5;}
 }
 function drawZone(){
   const zx=zone.x,zy=zone.y,zw=zone.w,zh=zone.h;
